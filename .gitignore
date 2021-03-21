@@ -50,3 +50,12 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+#Emacs Editor Temp Files
+build.bat
+build.sh
+build
+*~
+*.swp
+\#*\#
+.\#*
