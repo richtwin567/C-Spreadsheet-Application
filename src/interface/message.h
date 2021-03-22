@@ -9,7 +9,7 @@
  * 
  */
 #include "code.h"
-#include "spreadsheet/spreadsheetData.h"
+#include "../spreadsheet/spreadsheetData.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,7 +40,7 @@ struct ClientMessage
 };
 
 /**
- * @brief Represents a client
+ * @brief Represents a server message
  * 
  */
 struct ServerMessage
@@ -52,11 +52,18 @@ struct ServerMessage
     char *       message; // Any additional message the server wants to send to the client. This may be null.
 };
 
+/**
+ * @brief Converts a client message to a string to be sent over a socket
+ * 
+ * @param msg the message to be converted
+ * @return char* the message as a string
+ */
 char *serializeClientMsg(struct ClientMessage msg)
 {
     char *payload = calloc(4 + strlen(msg.command.input), sizeof(char)); //initialize message to size of command and coordinates.
     char *header  = calloc(HEADER_SIZE, sizeof(char));
     char *temp    = calloc(HEADER_SIZE, sizeof(char));
+    
     sprintf(payload, "%d:%c:%s", msg.command.coords.x, msg.command.coords.y, msg.command.input);
     sprintf(temp, "%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, strlen(payload));
     // pad to length of header
@@ -74,6 +81,12 @@ char *serializeClientMsg(struct ClientMessage msg)
     return packet;
 }
 
+/**
+ * @brief Count the number of digits in a number   
+ * 
+ * @param number the number to count
+ * @return int the number of digits in number
+ */
 int countDigits(int number)
 {
     if (number == 0)
@@ -90,6 +103,12 @@ int countDigits(int number)
     return count;
 }
 
+/**
+ * @brief Converts a server message to a string
+ * 
+ * @param msg the message to convert
+ * @return char* the message a string
+ */
 char *serializeServerMsg(struct ServerMessage msg)
 {
     int   length = (msg.sheet.rowCount * msg.sheet.lineLength) + msg.sheet.rowCount;
@@ -133,6 +152,12 @@ char *serializeServerMsg(struct ServerMessage msg)
     return packet;
 }
 
+/**
+ * @brief Converts a string into a server message
+ * 
+ * @param msg the string sent throught the socket
+ * @return struct ServerMessage the message obtained from the string
+ */
 struct ServerMessage parseServerMsg(char *msg)
 {
     struct ServerMessage parsedMsg;
@@ -200,6 +225,12 @@ struct ServerMessage parseServerMsg(char *msg)
     return parsedMsg;
 }
 
+/**
+ * @brief Converts a string into a client message
+ * 
+ * @param msg the message to convert
+ * @return struct ClientMessage 
+ */
 struct ClientMessage parseClientMsg(char *msg)
 {
     struct ClientMessage parsedMsg;

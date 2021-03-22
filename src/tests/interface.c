@@ -1,4 +1,4 @@
-#include "interface/message.h"
+#include "../interface/message.h"
 
 // interface unit test
 int main(int argc, char const *argv[])

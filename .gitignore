@@ -65,3 +65,6 @@ build
 
 # vscode
 .vscode/
+
+# temp build files
+a.out
