@@ -7,14 +7,14 @@ int main(int argc, char const *argv[])
     struct ClientMessage test2;
     test.header.code         = SAVE;
     test.header.sheetVersion = 1;
-    test.command.coords.x    = 4;
-    test.command.coords.y    = 'E';
+    test.command.coords.row  = 4;
+    test.command.coords.col  = 'E';
     test.command.input       = "=AVERAGE(43,54)";
 
     char *p = serializeClientMsg(test);
     printf("%s\n", p);
     test2 = parseClientMsg(p);
-    printf("%d\n%d\n%d\n%c\n%s\n", test2.header.code, test2.header.sheetVersion, test2.command.coords.x, test2.command.coords.y, test2.command.input);
+    printf("%d\n%d\n%d\n%c\n%s\n", test2.header.code, test2.header.sheetVersion, test2.command.coords.row, test2.command.coords.col, test2.command.input);
 
     struct ServerMessage t3;
     struct ServerMessage t4;

@@ -19,8 +19,8 @@ struct Sheet
 
 struct SheetCoord
 {
-    int x;  // The x coordinate (row)
-    char y; // the y coordinate (column)
+    int row;  // The row coordinate
+    char col; // the column coordinate
 };
 
 struct Command

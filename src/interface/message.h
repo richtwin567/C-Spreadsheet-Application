@@ -8,8 +8,9 @@
  * @copyright Copyright (c) 2021
  * 
  */
-#include "code.h"
 #include "../spreadsheet/spreadsheetData.h"
+#include "../utils/utils.h"
+#include "code.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +24,8 @@ const int HEADER_SIZE = 20;
  */
 struct Header
 {
-    enum Code code;         // The code associated with the message
-    int       sheetVersion; // The latest version of the sheet that the sender has
+    enum Code code;   // The code associated with the message
+    int sheetVersion; // The latest version of the sheet that the sender has
 };
 
 /**
@@ -48,8 +49,8 @@ struct ServerMessage
     struct Header header; // The packet header
 
     // payload
-    struct Sheet sheet;   // The latest version of the spreadsheet
-    char *       message; // Any additional message the server wants to send to the client. This may be null.
+    struct Sheet sheet; // The latest version of the spreadsheet
+    char *message;      // Any additional message the server wants to send to the client. This may be null.
 };
 
 /**
@@ -63,14 +64,14 @@ char *serializeClientMsg(struct ClientMessage msg)
     char *payload = calloc(4 + strlen(msg.command.input), sizeof(char)); //initialize message to size of command and coordinates.
     char *header  = calloc(HEADER_SIZE, sizeof(char));
     char *temp    = calloc(HEADER_SIZE, sizeof(char));
-    
-    sprintf(payload, "%d:%c:%s", msg.command.coords.x, msg.command.coords.y, msg.command.input);
+
+    sprintf(payload, "%d:%c:%s", msg.command.coords.row, msg.command.coords.col, msg.command.input);
     sprintf(temp, "%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, strlen(payload));
     // pad to length of header
     sprintf(header, "%*s", HEADER_SIZE, temp);
 
-    int   fullSize = HEADER_SIZE + strlen(payload);
-    char *packet   = calloc(fullSize, sizeof(char));
+    int fullSize = HEADER_SIZE + strlen(payload);
+    char *packet = calloc(fullSize, sizeof(char));
     sprintf(packet, "%s%s", header, payload);
 
     // free used pointers
@@ -79,29 +80,7 @@ char *serializeClientMsg(struct ClientMessage msg)
     free(payload);
 
     return packet;
-}
-
-/**
- * @brief Count the number of digits in a number   
- * 
- * @param number the number to count
- * @return int the number of digits in number
- */
-int countDigits(int number)
-{
-    if (number == 0)
-    {
-        return 1;
-    }
-
-    int count = 0;
-    while (number > 0)
-    {
-        number = number / 10;
-        count++;
-    }
-    return count;
-}
+} // end function serializeClientMsg
 
 /**
  * @brief Converts a server message to a string
@@ -111,8 +90,8 @@ int countDigits(int number)
  */
 char *serializeServerMsg(struct ServerMessage msg)
 {
-    int   length = (msg.sheet.rowCount * msg.sheet.lineLength) + msg.sheet.rowCount;
-    char *grid   = calloc(length, sizeof(char));
+    int length = (msg.sheet.rowCount * msg.sheet.lineLength) + msg.sheet.rowCount;
+    char *grid = calloc(length, sizeof(char));
     for (int i = 0; i < msg.sheet.rowCount; i++)
     {
         strcat(grid, msg.sheet.grid[i]);
@@ -139,8 +118,8 @@ char *serializeServerMsg(struct ServerMessage msg)
     // pad to length of header
     sprintf(header, "%*s", HEADER_SIZE, temp);
 
-    int   fullSize = HEADER_SIZE + strlen(payload);
-    char *packet   = calloc(fullSize, sizeof(char));
+    int fullSize = HEADER_SIZE + strlen(payload);
+    char *packet = calloc(fullSize, sizeof(char));
     sprintf(packet, "%s%s", header, payload);
 
     // free used pointers
@@ -150,7 +129,7 @@ char *serializeServerMsg(struct ServerMessage msg)
     free(payload);
 
     return packet;
-}
+} // end function serializeServerMsg
 
 /**
  * @brief Converts a string into a server message
@@ -223,7 +202,7 @@ struct ServerMessage parseServerMsg(char *msg)
     parsedMsg.message[i] = '\0';
 
     return parsedMsg;
-}
+} // end function parseServerMsg
 
 /**
  * @brief Converts a string into a client message
@@ -240,7 +219,7 @@ struct ClientMessage parseClientMsg(char *msg)
     int code;
 
     read = sscanf(msg,
-                  "%d:%d:%d@%d:%c", &code, &parsedMsg.header.sheetVersion, &payloadLength, &parsedMsg.command.coords.x, &parsedMsg.command.coords.y);
+                  "%d:%d:%d@%d:%c", &code, &parsedMsg.header.sheetVersion, &payloadLength, &parsedMsg.command.coords.row, &parsedMsg.command.coords.col);
 
     if (read != 5)
     {
@@ -259,4 +238,4 @@ struct ClientMessage parseClientMsg(char *msg)
         // TODO maybe exit?
     }
     return parsedMsg;
-}
+} // end function parseClientMsg
