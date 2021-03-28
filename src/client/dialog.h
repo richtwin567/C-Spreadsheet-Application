@@ -8,9 +8,7 @@
  * @copyright Copyright (c) 2021
  * 
  */
-#include "../interface/code.h"
-#include "../spreadsheet/spreadsheetData.h"
-#include "../utils/utils.h"
+#include "../interface/message.h"
 
 #include <stdio.h>
 #include <stdlib.h>
