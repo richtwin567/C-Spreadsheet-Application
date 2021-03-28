@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 /**
  * @brief Count the number of digits in a number   
@@ -21,3 +22,11 @@ int countDigits(long number)
     return count;
 }
 
+/**
+ * @brief A function to flush the stdin stream since fflush(stdin) has undefined behaviour.
+ * 
+ */
+void flushStdin()
+{
+    while (getchar() != '\n');
+}

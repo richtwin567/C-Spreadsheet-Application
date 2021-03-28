@@ -9,6 +9,10 @@
  * 
  */
 
+/**
+ * @brief Represents the spreadsheet
+ * 
+ */
 struct Sheet
 {
     int size;       // The size of the board grid
@@ -17,12 +21,20 @@ struct Sheet
     char **grid;    // The game board array (pointer implementation)
 };
 
+/**
+ * @brief Represents a coordinate on a spreadsheet
+ * 
+ */
 struct SheetCoord
 {
     int row;  // The row coordinate
     char col; // the column coordinate
 };
 
+/**
+ * @brief Represents a user given command to be executed by the server
+ * 
+ */
 struct Command
 {
     struct SheetCoord coords; // The coordinates for the move

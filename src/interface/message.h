@@ -26,6 +26,7 @@ struct Header
 {
     enum Code code;   // The code associated with the message
     int sheetVersion; // The latest version of the sheet that the sender has
+    int senderId;     // The sender's ID number
 };
 
 /**
@@ -37,7 +38,7 @@ struct ClientMessage
     struct Header header; // The packet header
 
     // payload
-    struct Command command; // The command sent by the client. This may be null if the client is requesting a save
+    struct Command *command; // The command sent by the client. This may be null if the client is requesting a save
 };
 
 /**
@@ -61,12 +62,21 @@ struct ServerMessage
  */
 char *serializeClientMsg(struct ClientMessage msg)
 {
-    char *payload = calloc(4 + strlen(msg.command.input), sizeof(char)); //initialize message to size of command and coordinates.
-    char *header  = calloc(HEADER_SIZE, sizeof(char));
-    char *temp    = calloc(HEADER_SIZE, sizeof(char));
+    char *payload;
+    char *header = calloc(HEADER_SIZE, sizeof(char));
+    char *temp   = calloc(HEADER_SIZE, sizeof(char));
 
-    sprintf(payload, "%d:%c:%s", msg.command.coords.row, msg.command.coords.col, msg.command.input);
-    sprintf(temp, "%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, strlen(payload));
+    if (msg.command != NULL)
+    {
+        payload = calloc(4 + strlen(msg.command->input), sizeof(char)); //initialize message to size of command and coordinates.
+        sprintf(payload, "%d:%c:%s", msg.command->coords.row, msg.command->coords.col, msg.command->input);
+    }
+    else
+    {
+        payload = malloc(11 * (sizeof *payload));
+        sprintf(payload, "-1:-1:None");
+    }
+    sprintf(temp, "%d:%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, strlen(payload));
     // pad to length of header
     sprintf(header, "%*s", HEADER_SIZE, temp);
 
@@ -114,7 +124,7 @@ char *serializeServerMsg(struct ServerMessage msg)
 
     char *header = calloc(HEADER_SIZE, sizeof(char));
     char *temp   = calloc(HEADER_SIZE, sizeof(char));
-    sprintf(temp, "%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, strlen(payload));
+    sprintf(temp, "%d:%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, strlen(payload));
     // pad to length of header
     sprintf(header, "%*s", HEADER_SIZE, temp);
 
@@ -146,7 +156,7 @@ struct ServerMessage parseServerMsg(char *msg)
     int code;
     int i = 0;
 
-    read = sscanf(msg, "%d:%d:%d@%d:%d:%d:", &code, &parsedMsg.header.sheetVersion, &length, &parsedMsg.sheet.size, &parsedMsg.sheet.rowCount, &parsedMsg.sheet.lineLength);
+    read = sscanf(msg, "%d:%d:%d:%d@%d:%d:%d:", &code, &parsedMsg.header.sheetVersion, &parsedMsg.header.senderId, &length, &parsedMsg.sheet.size, &parsedMsg.sheet.rowCount, &parsedMsg.sheet.lineLength);
 
     parsedMsg.header.code = code;
 
@@ -201,6 +211,11 @@ struct ServerMessage parseServerMsg(char *msg)
     }
     parsedMsg.message[i] = '\0';
 
+    if (strcmp(parsedMsg.message, "None") == 0)
+    {
+        parsedMsg.message = NULL;
+    }
+
     return parsedMsg;
 } // end function parseServerMsg
 
@@ -219,7 +234,7 @@ struct ClientMessage parseClientMsg(char *msg)
     int code;
 
     read = sscanf(msg,
-                  "%d:%d:%d@%d:%c", &code, &parsedMsg.header.sheetVersion, &payloadLength, &parsedMsg.command.coords.row, &parsedMsg.command.coords.col);
+                  "%d:%d:%d:%d@%d:%c", &code, &parsedMsg.header.sheetVersion, &parsedMsg.header.senderId, &payloadLength, &parsedMsg.command->coords.row, &parsedMsg.command->coords.col);
 
     if (read != 5)
     {
@@ -229,13 +244,20 @@ struct ClientMessage parseClientMsg(char *msg)
 
     parsedMsg.header.code = code;
     payloadLength -= 4;
-    parsedMsg.command.input = calloc(payloadLength, sizeof(char));
+    parsedMsg.command->input = calloc(payloadLength, sizeof(char));
 
-    read = sscanf(msg, "%*[^@]@%*[^:]:%*[^:]:%s", parsedMsg.command.input);
+    read = sscanf(msg, "%*[^@]@%*[^:]:%*[^:]:%s", parsedMsg.command->input);
     if (read != 1)
     {
         fprintf(stderr, "\nParsing the client message failed\n");
         // TODO maybe exit?
     }
+
+    if (parsedMsg.command->coords.col == -1 && parsedMsg.command->coords.row == -1 && strcmp(parsedMsg.command->input, "None") == 0)
+    {
+        free(parsedMsg.command);
+        parsedMsg.command = NULL;
+    }
+
     return parsedMsg;
 } // end function parseClientMsg

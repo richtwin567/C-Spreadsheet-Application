@@ -17,7 +17,7 @@ const int COL_WIDTH = 12;
  */
 int isOnSheet(struct Sheet sheet, struct SheetCoord coords)
 {
-    return (coords.row <= sheet.size && coords.row >= 1) && (coords.col < sheet.size + 'A' && coords.col >= 'A');
+    return (coords.row <= sheet.size && coords.row >= 1) && (toupper(coords.col) < sheet.size + 'A' && toupper(coords.col) >= 'A');
 } // end function isOnSheet
 
 /**
@@ -26,11 +26,11 @@ int isOnSheet(struct Sheet sheet, struct SheetCoord coords)
  * @param userColumnInput the column number
  * @return int the index of the column
  */
-int getColumnIndex(int userColumnInput)
+int getColumnIndex(char userColumnInput)
 {
     // Calculate the accurate column index by expressing the column
     // as the nth value in an arithmetic series (nth = a+(n-1)d)
-    return 4 + (COL_WIDTH * (userColumnInput - 'A'));
+    return 4 + (COL_WIDTH * (toupper(userColumnInput) - 'A'));
 } // end function getColumnIndex
 
 /**
@@ -47,10 +47,10 @@ int getRowIndex(int userRowInput)
 } // end function getRowIndex
 
 /**
- * @brief Get the board row based on the index given
+ * @brief Get the sheet row based on the index given
  * 
  * @param index the index in the string
- * @return int the board row
+ * @return int the sheet row
  */
 int getVirtualRow(int index)
 {
@@ -60,10 +60,10 @@ int getVirtualRow(int index)
 } //end function getVirtualRow
 
 /**
- * @brief Get the board column based on the index given
+ * @brief Get the sheet column based on the index given
  * 
  * @param index the index in the string
- * @return int the board column
+ * @return char the sheet column
  */
 char getVirtualCol(int index)
 {
