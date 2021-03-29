@@ -1,4 +1,4 @@
-#include <stdlib.gh>
+#include <stdlib.h>
 #include "server.h"
 #include "../interface/message.h"
 
@@ -12,7 +12,7 @@ int main(int argc, char** argv)
 	pthread_t connectionThread = {0};
 	int threadError = 0
 		
-	Server server = serverStart(portNo, clientCap);
+	Server server = startServer(portNo, clientCap);
 	
 	if(server.state == SERVER_ACTIVE)
 	{
@@ -32,9 +32,9 @@ int main(int argc, char** argv)
 		while(!shouldClose())
 		{
 			
-			// struct ClientMessage msg = getNextMessage(server);
+			struct Command* msg = getNextMessage(server.messages);
 			
-			// CommandOutput result = executeCommand(msg.command);
+			// CommandOutput result = executeCommand(command);
 		}
 	}
 	else
