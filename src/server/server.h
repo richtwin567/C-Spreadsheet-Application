@@ -6,15 +6,26 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
+#include "../spreadsheet/spreadsheetData.h"
+
+#define MESSAGE_CAPACITY 32
+
 enum ServerState
 {
 	SERVER_ACTIVE,
 	SERVER_INVALID,
 };
 
+typedef struct _MessageQueue
+{
+	struct Command messages[MESSAGE_CAPACITY];
+
+	int first;
+	int count;
+}MessageQueue;
+
 
 // TODO(afb) :: Resizeable client capacity
-
 typedef struct _Server
 {
 	int          socketNumber;
@@ -23,6 +34,7 @@ typedef struct _Server
 	unsigned int connectedClientsCount;    
 	unsigned int maxClientCapacity;
 
+	MessageQueue* messages;
 	pthread_mutex_t messageQueueLock;
 	
 	// TODO(afb) :: Determine if this just needs to be a 'bool'
@@ -42,6 +54,30 @@ typedef struct _ClientMessageThread
 }ClientMessageThread;
 
 
+struct Command* getNextMessage(MessageQueue* messages)
+{
+	struct Command* result = NULL;
+
+	if(messages->first != messages->count)
+	{
+		result = messages[messages->first++];
+		if(messages->first >= MESSAGE_CAPACITY)
+			messages->first = 0;
+	}
+
+	return result;
+}
+
+// NOTE(afb) :: Will eat the first message if the buffer is full
+// shouldn't cause any problems though since the messages shouldn't
+// take long to process and pile up
+void addNewMessage(MessageQueue* messages, struct Command command)
+{
+	messages[messages->count++] = command;
+	if(messages->count >= MESSAGE_CAPACITY)
+		messages->count = 0;
+}
+
 void* handleClientMessages(void* args)
 {
 	// TODO(afb) :: Complete funcion
@@ -53,11 +89,12 @@ void* handleClientMessages(void* args)
 	// TODO(afb) :: Add message to message queue
 }
 
+
 void acceptClientsAsync(void* args)
 {
 	Server* server = (Server*)args;
 	
-	// TODO(afb) :: Maybe need to move mutex to main function
+	// DONE(afb) :: Maybe need to move mutex to main function
 	// so that it can access the message queue
 	
 	// Lock for using clients to use message queue
@@ -78,9 +115,9 @@ void acceptClientsAsync(void* args)
 							   (struct sockaddr*)&newClientAddress,
 							   &newClientAddressSize);
 
-		ClientMessageThread* thData = &(threadData[server->connectedClientsCount]);
-		thData->socketNumber = newClient;
-		thData->lock = &server->messageQueueLock;
+		ClientMessageThread* threadData = &(threadData[server->connectedClientsCount]);
+		threadData->socketNumber = newClient;
+		threadData->lock = &server->messageQueueLock;
 		
 		if(newClient < 0)
 		{
@@ -99,7 +136,7 @@ void acceptClientsAsync(void* args)
 			int threadError = 0;
 			if(!(threadError = pthread_create(th, NULL,
 											  handleClientMessages,
-											  thData)))
+											  threadData)))
 			{
 				// TODO(afb) :: log sucess
 				pthread_detach(*th);
@@ -140,9 +177,9 @@ Server startServer(int portNumber, unsigned int maxClients)
 	result.state             = SERVER_ACTIVE;
 
 	struct sockaddr_in serverAddress = {0};
-	server.sin_family = AF_INET;
-	server.sin_port   = htons(portNo);
-	server.sin_addr.s_addr = INADDR_ANY;
+	serverAddress.sin_family = AF_INET;
+	serverAddress.sin_port   = htons(portNumber);
+	serverAddress.sin_addr.s_addr = INADDR_ANY;
 
 	if((result.socketNumber = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
@@ -165,8 +202,8 @@ Server startServer(int portNumber, unsigned int maxClients)
 
 	if(result.state == SERVER_ACTIVE)
 	{
-			result.connectedClients = (int*)calloc(maxClients,
-												   sizeof(int));
+			result.connectedClientSockets = (int*)calloc(maxClients,
+														 sizeof(int));
 	}
 
 	return result;
