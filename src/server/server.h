@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 enum ServerState
 {
@@ -21,6 +22,8 @@ typedef struct _Server
 	int*         connectedClientSockets;
 	unsigned int connectedClientsCount;    
 	unsigned int maxClientCapacity;
+
+	pthread_mutex_t messageQueueLock;
 	
 	// TODO(afb) :: Determine if this just needs to be a 'bool'
 	// to decide if the sever should close or not. Consider
@@ -38,41 +41,46 @@ typedef struct _ClientMessageThread
 	// TODO(afb) :: Add message queue
 }ClientMessageThread;
 
-Server startServer(int portNumber, unsigned int maxClients);
-
-int shouldClose(Server server);
-
 
 void* handleClientMessages(void* args)
 {
 	// TODO(afb) :: Complete funcion
+
+	// TODO(afb) :: Wait for messages
+
+	// TODO(afb) :: Process messagge
+
+	// TODO(afb) :: Add message to message queue
 }
 
 void acceptClientsAsync(void* args)
 {
 	Server* server = (Server*)args;
 	
+	// TODO(afb) :: Maybe need to move mutex to main function
+	// so that it can access the message queue
+	
 	// Lock for using clients to use message queue
-	pthread_mutex_t clientMessageLock;
-	pthread_mutex_init(&clientMessageLock, NULL);
 
-	ClientMessageThread* threadData =
-		(ClientMessageThread*)calloc(server->maxClientCapacity, sizeof(ClientMessageThread));
+
+	ClientMessageThread* threadData = (ClientMessageThread*)calloc(server->maxClientCapacity, sizeof(ClientMessageThread));
 
 	// Client message handler threads
-	pthread_t* clientMessageHandler =
-		(pthread_t*)calloc(server->maxClientCapacity, sizeof(pthread_t));
+	pthread_t* clientMessageHandler = (pthread_t*)calloc(server->maxClientCapacity, sizeof(pthread_t));
+
+	struct sockaddr_in newClientAddress = {0};
+	socklen_t newClientAddressSize = sizeof(newClientAddress);
 
 	// Run until server is no longer active
 	while(server->state == SERVER_ACTIVE)
 	{
 		int newClient = accept(server->socketNumber,
 							   (struct sockaddr*)&newClientAddress,
-							   sizeof(newClientAddress));
+							   &newClientAddressSize);
 
 		ClientMessageThread* thData = &(threadData[server->connectedClientsCount]);
 		thData->socketNumber = newClient;
-		thData->lock = &clientMessageLock;
+		thData->lock = &server->messageQueueLock;
 		
 		if(newClient < 0)
 		{
@@ -88,11 +96,13 @@ void acceptClientsAsync(void* args)
 			// client
 			// NOTE(afb) :: Create a new thread to process client
 			// messages.
+			int threadError = 0;
 			if(!(threadError = pthread_create(th, NULL,
 											  handleClientMessages,
 											  thData)))
 			{
 				// TODO(afb) :: log sucess
+				pthread_detach(*th);
 			}
 			else
 			{

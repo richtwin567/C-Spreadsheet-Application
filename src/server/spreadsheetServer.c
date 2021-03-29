@@ -13,9 +13,11 @@ int main(int argc, char** argv)
 	int threadError = 0
 		
 	Server server = serverStart(portNo, clientCap);
-
+	
 	if(server.state == SERVER_ACTIVE)
 	{
+		pthread_mutex_init(&server.messageQueueLock, NULL);
+
 		if(!(threadError = pthread_create(&connectionThread, NULL,
 										 acceptClientsAsync, &server)))
 		{
@@ -29,11 +31,10 @@ int main(int argc, char** argv)
 		
 		while(!shouldClose())
 		{
-			updateServerState(server);
 			
-			struct ClientMessage msg = getNextMessage(server);
+			// struct ClientMessage msg = getNextMessage(server);
 			
-			CommandOutput result = executeCommand(msg.command);
+			// CommandOutput result = executeCommand(msg.command);
 		}
 	}
 	else
