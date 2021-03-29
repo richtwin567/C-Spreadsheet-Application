@@ -62,6 +62,8 @@ int getPayloadLength(char *headerStr)
     return length;
 }
 
+//TODO optimize memory usage
+
 /**
  * @brief Converts a client message to a string to be sent over a socket
  * 
