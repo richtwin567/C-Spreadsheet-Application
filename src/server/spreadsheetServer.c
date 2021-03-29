@@ -1,4 +1,4 @@
-#include <stdlib.gh>
+#include <stdlib.h>
 #include "server.h"
 #include "../interface/message.h"
 
@@ -10,7 +10,7 @@ int main(int argc, char** argv)
 
 	// Client connection thread
 	pthread_t connectionThread = {0};
-	int threadError = 0
+	int threadError = 0;
 		
 	Server server = serverStart(portNo, clientCap);
 	

@@ -50,6 +50,7 @@ struct SheetCoord promptForCell()
 
 char *promptForData()
 {
+    //TODO pointer check
     char *data = calloc(1, sizeof *data);
     char c;
     int i = 0;

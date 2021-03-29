@@ -9,7 +9,7 @@
 enum ServerState
 {
 	SERVER_ACTIVE,
-	SERVER_INVLAID,
+	SERVER_INVALID,
 };
 
 
@@ -133,7 +133,7 @@ void closeServer(Server server)
 }
 
 
-Server startServer(int portNumber, unsigned int maxClients);
+Server startServer(int portNumber, unsigned int maxClients)
 {
 	Server result = {0};
 	result.maxClientCapacity = maxClients;
