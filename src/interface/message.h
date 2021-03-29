@@ -54,6 +54,14 @@ struct ServerMessage
     char *message;      // Any additional message the server wants to send to the client. This may be null.
 };
 
+int getPayloadLength(char *headerStr)
+{
+    int length;
+
+    sscanf(headerStr, "%*d:%*d:%*d:%d", &length);
+    return length;
+}
+
 /**
  * @brief Converts a client message to a string to be sent over a socket
  * 
@@ -101,7 +109,7 @@ char *serializeClientMsg(struct ClientMessage msg)
 char *serializeServerMsg(struct ServerMessage msg)
 {
     int length = (msg.sheet.rowCount * msg.sheet.lineLength) + msg.sheet.rowCount;
-    char *grid = calloc(length, sizeof(char));
+    char *grid = malloc(length* sizeof(char));
     for (int i = 0; i < msg.sheet.rowCount; i++)
     {
         strcat(grid, msg.sheet.grid[i]);
@@ -113,23 +121,23 @@ char *serializeServerMsg(struct ServerMessage msg)
     if (msg.message != NULL)
     {
         length += strlen(msg.message);
-        payload = calloc(length, sizeof(char)); //initialize message to size of command and coordinates.
+        payload = malloc(length* sizeof(char)); //initialize message to size of command and coordinates.
         sprintf(payload, "%d:%d:%d:%s:%s", msg.sheet.size, msg.sheet.rowCount, msg.sheet.lineLength, grid, msg.message);
     }
     else
     {
-        payload = calloc(length, sizeof(char)); //initialize message to size of command and coordinates.
+        payload = malloc(length* sizeof(char)); //initialize message to size of command and coordinates.
         sprintf(payload, "%d:%d:%d:%s:None", msg.sheet.size, msg.sheet.rowCount, msg.sheet.lineLength, grid);
     }
 
-    char *header = calloc(HEADER_SIZE, sizeof(char));
-    char *temp   = calloc(HEADER_SIZE, sizeof(char));
+    char *header = malloc(HEADER_SIZE*sizeof(char));
+    char *temp   = malloc(HEADER_SIZE* sizeof(char));
     sprintf(temp, "%d:%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, strlen(payload));
     // pad to length of header
     sprintf(header, "%*s", HEADER_SIZE, temp);
 
     int fullSize = HEADER_SIZE + strlen(payload);
-    char *packet = calloc(fullSize, sizeof(char));
+    char *packet = malloc(fullSize* sizeof(char));
     sprintf(packet, "%s%s", header, payload);
 
     // free used pointers
@@ -160,7 +168,7 @@ struct ServerMessage parseServerMsg(char *msg)
 
     parsedMsg.header.code = code;
 
-    if (read != 6)
+    if (read != 7)
     {
         fprintf(stderr, "\nParsing the server message failed\n");
         // TODO maybe exit?
@@ -229,14 +237,16 @@ struct ClientMessage parseClientMsg(char *msg)
 {
     struct ClientMessage parsedMsg;
 
+
     int payloadLength;
     int read;
     int code;
 
+    parsedMsg.command = malloc(sizeof *parsedMsg.command);
     read = sscanf(msg,
                   "%d:%d:%d:%d@%d:%c", &code, &parsedMsg.header.sheetVersion, &parsedMsg.header.senderId, &payloadLength, &parsedMsg.command->coords.row, &parsedMsg.command->coords.col);
 
-    if (read != 5)
+    if (read != 6)
     {
         fprintf(stderr, "\nParsing the client message failed\n");
         // TODO maybe exit?

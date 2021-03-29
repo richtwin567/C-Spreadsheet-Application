@@ -5,6 +5,7 @@ int main(int argc, char const *argv[])
     struct Sheet s;
     s.size = 9;
     getBlankSheet(&s);
+    printf("%d %d\n", s.rowCount, s.lineLength);
     printSheet(s);
 
     // test formatting of words and numbers
