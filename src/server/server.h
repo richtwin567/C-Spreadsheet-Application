@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
-#include "../spreadsheet/spreadsheetData.h"
+#include "../interface/message.h"
 
 #define MESSAGE_CAPACITY 32
 
@@ -60,7 +60,7 @@ struct Command* getNextMessage(MessageQueue* messages)
 
 	if(messages->first != messages->count)
 	{
-		result = messages[messages->first++];
+		result = &messages->messages[messages->first++];
 		if(messages->first >= MESSAGE_CAPACITY)
 			messages->first = 0;
 	}
@@ -73,7 +73,7 @@ struct Command* getNextMessage(MessageQueue* messages)
 // take long to process and pile up
 void addNewMessage(MessageQueue* messages, struct Command command)
 {
-	messages[messages->count++] = command;
+	messages->messages[messages->count++] = command;
 	if(messages->count >= MESSAGE_CAPACITY)
 		messages->count = 0;
 }
@@ -90,7 +90,7 @@ void* handleClientMessages(void* args)
 }
 
 
-void acceptClientsAsync(void* args)
+void* acceptClientsAsync(void* args)
 {
 	Server* server = (Server*)args;
 	

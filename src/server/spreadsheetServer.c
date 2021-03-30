@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include "server.h"
-#include "../interface/message.h"
 
 
 int main(int argc, char** argv)
@@ -29,7 +28,7 @@ int main(int argc, char** argv)
 		}
 
 		
-		while(!shouldClose())
+		while(!shouldClose(server))
 		{
 			
 			struct Command* msg = getNextMessage(server.messages);
