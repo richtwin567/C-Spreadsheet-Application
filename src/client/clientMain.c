@@ -25,7 +25,7 @@
 // GLOBALS TO BE USED IN BOTH THREADS AND IN SIGNALS //
 
 int shouldMainWait  = 1;  // whether the main thread should wait until an event occurs in the child thread
-int shouldChildWait = 0;  // whether the child thread should wait until an event occurs in the child thread
+int shouldChildWait = 0;  // whether the child thread should wait until an event occurs in the main thread
 int bufferIsDirty   = 0;  // whether there is a pending message for the user
 int sock            = -1; // the socket file descriptor for connecting to the server
 pthread_t thread;         // a thread that will handle incoming server messages
@@ -223,7 +223,8 @@ int main(int argc, char const *argv[])
     struct sigaction onThreadExit;
 
     char *packet       = NULL; // the packet to be sent to the server
-    int currentVersion = 0;    // stores the version of the spreadsheet that the user is working on since the serverMsg buffer may be updated before the next request is sent by the client.
+    int currentVersion = 0;    // stores the version of the spreadsheet that the user is working on.
+    // useful since the serverMsg buffer may be updated before the next request is sent by the client.
     int packetLength   = 0;    // the length of the packet to be sent
 
     // initialize message structs
