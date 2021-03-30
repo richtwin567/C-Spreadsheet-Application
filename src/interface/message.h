@@ -54,222 +54,316 @@ struct ServerMessage
     char *message;      // Any additional message the server wants to send to the client. This may be null.
 };
 
-int getPayloadLength(char *headerStr)
+/**
+ * @brief Initializes a ServerMessage struct's pointers to null
+ * 
+ * @param msg the server message
+ */
+void initServerMessage(struct ServerMessage *msg)
 {
-    int length;
-
-    sscanf(headerStr, "%*d:%*d:%*d:%d", &length);
-    return length;
+    msg->message    = NULL;
+    msg->sheet.grid = NULL;
 }
 
-//TODO optimize memory usage
+/**
+ * @brief Initializes a ClientMessage struct's pointers to null
+ * 
+ * @param msg the client message
+ */
+void initClientMessage(struct ClientMessage *msg)
+{
+    msg->command = NULL;
+}
 
 /**
  * @brief Converts a client message to a string to be sent over a socket
  * 
  * @param msg the message to be converted
- * @return char* the message as a string
+ * @param packet a pointer to the packet to write the serialized data to
+ * @return int the packet length
  */
-char *serializeClientMsg(struct ClientMessage msg)
+int serializeClientMsg(struct ClientMessage msg, char **packet)
 {
-    char *payload;
-    char *header = calloc(HEADER_SIZE, sizeof(char));
-    char *temp   = calloc(HEADER_SIZE, sizeof(char));
+    int payloadLength = 0; // the length of the message not including the header
+    int fullLength    = 0; // the length of the payload and the header
+    char *temp        = calloc(HEADER_SIZE, sizeof(char));
 
-    if (msg.command != NULL)
+    // add length of command and coords and a space for the null terminator
+    payloadLength += msg.command == NULL ? 11 : countDigits(msg.command->coords.row) + 4 + strlen(msg.command->input);
+
+    // initialize packet memory if null
+    if (*packet == NULL)
     {
-        payload = calloc(4 + strlen(msg.command->input), sizeof(char)); //initialize message to size of command and coordinates.
-        sprintf(payload, "%d:%c:%s", msg.command->coords.row, msg.command->coords.col, msg.command->input);
+        *packet = malloc(1);
     }
-    else
-    {
-        payload = malloc(11 * (sizeof *payload));
-        sprintf(payload, "-1:-1:None");
-    }
-    sprintf(temp, "%d:%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, strlen(payload));
+
+    // zero out structure
+    memset(*packet, 0, sizeof *packet);
+
+    sprintf(temp, "%d:%d:%d:%d@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, payloadLength);
+
+    fullLength += payloadLength + HEADER_SIZE;
+
+    *packet = realloc(*packet, fullLength);
+
     // pad to length of header
-    sprintf(header, "%*s", HEADER_SIZE, temp);
-
-    int fullSize = HEADER_SIZE + strlen(payload);
-    char *packet = calloc(fullSize, sizeof(char));
-    sprintf(packet, "%s%s", header, payload);
+    sprintf(*packet, "%*s%d:%c:%s", HEADER_SIZE, temp,
+            msg.command == NULL ? -1 : msg.command->coords.row,
+            msg.command == NULL ? '!' : msg.command->coords.col,
+            msg.command == NULL ? "None" : msg.command->input);
 
     // free used pointers
     free(temp);
-    free(header);
-    free(payload);
 
-    return packet;
+    return fullLength;
 } // end function serializeClientMsg
 
 /**
  * @brief Converts a server message to a string
  * 
  * @param msg the message to convert
- * @return char* the message a string
+ * @param packet a pointer to the packet to write the serialized data to
+ * @return int the packet length
  */
-char *serializeServerMsg(struct ServerMessage msg)
+int serializeServerMsg(struct ServerMessage msg, char **packet)
 {
-    int length = (msg.sheet.rowCount * msg.sheet.lineLength) + msg.sheet.rowCount;
-    char *grid = malloc(length* sizeof(char));
+    int payloadLength = 0;                   // the length of the message not including the header
+    int fullLength    = 0;                   // the length of the payload and the header
+    char *temp        = malloc(HEADER_SIZE); // a temporary header to avoid undefined behaviour if sprintf locations overlap on line 151
+
+    // add length of grid
+    payloadLength = (msg.sheet.rowCount * msg.sheet.lineLength);
+
+    // add length of grid stats
+    payloadLength += countDigits(msg.sheet.size) + countDigits(msg.sheet.rowCount) + countDigits(msg.sheet.lineLength);
+
+    // add length of message if it exists
+    payloadLength += msg.message == NULL ? 4 : strlen(msg.message);
+
+    // add space for semicolon separators
+    payloadLength += 4;
+
+    // add space for null terminator
+    payloadLength++;
+
+    // initialize packet memory if null
+    if (*packet == NULL)
+    {
+        *packet = malloc(1);
+    }
+
+    // zero out structure
+    memset(*packet, 0, sizeof *packet);
+
+    sprintf(temp, "%d:%d:%d:%d@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, payloadLength);
+
+    fullLength += payloadLength + HEADER_SIZE;
+
+    *packet = realloc(*packet, fullLength);
+
+    // pad to length of header
+    sprintf(*packet, "%*s%d:%d:%d:", HEADER_SIZE, temp, msg.sheet.size, msg.sheet.rowCount, msg.sheet.lineLength);
+
+    // add grid
     for (int i = 0; i < msg.sheet.rowCount; i++)
     {
-        strcat(grid, msg.sheet.grid[i]);
-        strcat(grid, "\n");
+        strcat(*packet, msg.sheet.grid[i]);
+        strcat(*packet, "\n");
     }
 
-    length += countDigits(msg.sheet.size) + countDigits(msg.sheet.rowCount) + countDigits(msg.sheet.lineLength);
-    char *payload;
-    if (msg.message != NULL)
-    {
-        length += strlen(msg.message);
-        payload = malloc(length* sizeof(char)); //initialize message to size of command and coordinates.
-        sprintf(payload, "%d:%d:%d:%s:%s", msg.sheet.size, msg.sheet.rowCount, msg.sheet.lineLength, grid, msg.message);
-    }
-    else
-    {
-        payload = malloc(length* sizeof(char)); //initialize message to size of command and coordinates.
-        sprintf(payload, "%d:%d:%d:%s:None", msg.sheet.size, msg.sheet.rowCount, msg.sheet.lineLength, grid);
-    }
-
-    char *header = malloc(HEADER_SIZE*sizeof(char));
-    char *temp   = malloc(HEADER_SIZE* sizeof(char));
-    sprintf(temp, "%d:%d:%d:%ld@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, strlen(payload));
-    // pad to length of header
-    sprintf(header, "%*s", HEADER_SIZE, temp);
-
-    int fullSize = HEADER_SIZE + strlen(payload);
-    char *packet = malloc(fullSize* sizeof(char));
-    sprintf(packet, "%s%s", header, payload);
+    // add message
+    strcat(*packet, ":");
+    strcat(*packet, msg.message == NULL ? "None" : msg.message);
 
     // free used pointers
     free(temp);
-    free(grid);
-    free(header);
-    free(payload);
 
-    return packet;
+    return fullLength;
+
 } // end function serializeServerMsg
 
 /**
  * @brief Converts a string into a server message
  * 
  * @param msg the string sent throught the socket
- * @return struct ServerMessage the message obtained from the string
+ * @param parsedMsg the message
  */
-struct ServerMessage parseServerMsg(char *msg)
+void parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
 {
-    struct ServerMessage parsedMsg;
+    int payloadLength = 0;
+    int messageLength = 0;
+    int gridLength    = 0;
+    int read          = 0;
+    int size          = 0;
+    int rowCount      = 0;
+    int lineLength    = 0;
+    int code          = 0;
+    int i             = 0;
 
-    int length;
-    int read;
-    int code;
-    int i = 0;
+    read = sscanf(msg, "%d:%*d:%*d:%d@%d:%d:%d:", &code, &payloadLength, &size, &rowCount, &lineLength);
 
-    read = sscanf(msg, "%d:%d:%d:%d@%d:%d:%d:", &code, &parsedMsg.header.sheetVersion, &parsedMsg.header.senderId, &length, &parsedMsg.sheet.size, &parsedMsg.sheet.rowCount, &parsedMsg.sheet.lineLength);
-
-    parsedMsg.header.code = code;
-
-    if (read != 7)
+    if (read != 5)
     {
         fprintf(stderr, "\nParsing the server message failed\n");
         // TODO maybe exit?
     }
 
-    // move the pointer down to the start of the grid
-    char *payloadSectionStart = strchr(msg, '@') + 1;
-    payloadSectionStart       = strchr(payloadSectionStart, ':') + 1;
-    payloadSectionStart       = strchr(payloadSectionStart, ':') + 1;
-    payloadSectionStart       = strchr(payloadSectionStart, ':') + 1;
+    payloadLength -= countDigits(size) + countDigits(rowCount) + countDigits(lineLength) + 3;
 
-    // allocate memory for spreadsheet grid
-    parsedMsg.sheet.grid = calloc(parsedMsg.sheet.rowCount, sizeof *parsedMsg.sheet.grid);
-    for (int i = 0; i < parsedMsg.sheet.rowCount; i++)
+    // move the pointer down to the start of the grid
+    char *gridStart = strchr(msg, '@') + 1;
+    gridStart       = strchr(gridStart, ':') + 1;
+    gridStart       = strchr(gridStart, ':') + 1;
+    gridStart       = strchr(gridStart, ':') + 1;
+
+    // move pointer down to start of message
+    char *messageStart = strchr(gridStart, ':') + 1;
+
+    gridLength = messageStart - gridStart;
+
+    messageLength = payloadLength - gridLength;
+
+    // allocate/reallocate memory for message
+    if (parsedMsg->message == NULL)
     {
-        parsedMsg.sheet.grid[i] = calloc(parsedMsg.sheet.lineLength, sizeof *(parsedMsg.sheet.grid[i]));
+        parsedMsg->message = malloc(messageLength);
+    }
+    else
+    {
+        parsedMsg->message = realloc(parsedMsg, messageLength);
+    }
+
+    // allocate/reallocate memory for spreadsheet grid
+    if (parsedMsg->sheet.grid == NULL)
+    {
+        parsedMsg->sheet.grid = calloc(rowCount, sizeof *parsedMsg->sheet.grid);
+        for (int i = 0; i < rowCount; i++)
+        {
+            parsedMsg->sheet.grid[i] = calloc(lineLength, sizeof *(parsedMsg->sheet.grid[i]));
+        }
+    }
+    else
+    {
+        parsedMsg->sheet.grid = realloc(parsedMsg->sheet.grid, rowCount * (sizeof *parsedMsg->sheet.grid));
+        for (int i = 0; i < rowCount; i++)
+        {
+            parsedMsg->sheet.grid[i] = realloc(parsedMsg->sheet.grid[i], lineLength * (sizeof *(parsedMsg->sheet.grid[i])));
+            memset(parsedMsg->sheet.grid[i], 0, sizeof parsedMsg->sheet.grid[i]);
+        }  }
+
+    // clear memory
+    memset(parsedMsg->message, 0, sizeof parsedMsg->message);
+    memset(&parsedMsg->sheet, 0, sizeof &parsedMsg->sheet);
+    memset(&parsedMsg->header, 0, sizeof &parsedMsg->header);
+    memset(parsedMsg, 0, sizeof parsedMsg);
+
+    parsedMsg->header.code      = code;
+    parsedMsg->sheet.rowCount   = rowCount;
+    parsedMsg->sheet.lineLength = lineLength;
+    parsedMsg->sheet.size       = size;
+
+    read = sscanf(msg, "%*d:%d:%d:", &parsedMsg->header.sheetVersion, &parsedMsg->header.senderId);
+
+    if (read != 2)
+    {
+        fprintf(stderr, "\nParsing the server message failed\n");
+        // TODO maybe exit?
     }
 
     // fill grid
     i     = 0;
     int x = 0;
-    payloadSectionStart++;
-    while (*payloadSectionStart != ':' && *payloadSectionStart != '\0')
+    while (*gridStart != ':')
     {
-        if (*payloadSectionStart == '\n')
+        if (*gridStart == '\n')
         {
             i++;
             x = 0;
         }
         else
         {
-            parsedMsg.sheet.grid[i][x] = *payloadSectionStart;
+            parsedMsg->sheet.grid[i][x] = *gridStart;
             x++;
         }
-        payloadSectionStart++;
+        gridStart++;
     }
 
     // get message
     i = 0;
-    payloadSectionStart++;
-    parsedMsg.message = calloc(1, sizeof(char));
-    while (*payloadSectionStart != '\0')
+    while (*messageStart != '\0')
     {
-        parsedMsg.message[i] = *payloadSectionStart;
-        payloadSectionStart++;
+        parsedMsg->message[i] = *messageStart;
+        messageStart++;
         i++;
-        parsedMsg.message = realloc(parsedMsg.message, i + 1);
+        parsedMsg->message = realloc(parsedMsg->message, i + 1);
     }
-    parsedMsg.message[i] = '\0';
+    parsedMsg->message[i] = '\0';
 
-    if (strcmp(parsedMsg.message, "None") == 0)
+    if (strcmp(parsedMsg->message, "None") == 0)
     {
-        parsedMsg.message = NULL;
+        free(parsedMsg->message);
+        parsedMsg->message = NULL;
     }
 
-    return parsedMsg;
 } // end function parseServerMsg
 
 /**
  * @brief Converts a string into a client message
  * 
  * @param msg the message to convert
- * @return struct ClientMessage 
+ * @param parsedMsg the message
  */
-struct ClientMessage parseClientMsg(char *msg)
+void parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
 {
-    struct ClientMessage parsedMsg;
+    int payloadLength, read, code, row;
 
-
-    int payloadLength;
-    int read;
-    int code;
-
-    parsedMsg.command = malloc(sizeof *parsedMsg.command);
     read = sscanf(msg,
-                  "%d:%d:%d:%d@%d:%c", &code, &parsedMsg.header.sheetVersion, &parsedMsg.header.senderId, &payloadLength, &parsedMsg.command->coords.row, &parsedMsg.command->coords.col);
+                  "%d:%*d:%*d:%d@%d:", &code, &payloadLength, &row);
 
-    if (read != 6)
+    if (read != 3)
     {
         fprintf(stderr, "\nParsing the client message failed\n");
         // TODO maybe exit?
     }
 
-    parsedMsg.header.code = code;
-    payloadLength -= 4;
-    parsedMsg.command->input = calloc(payloadLength, sizeof(char));
+    payloadLength -= (countDigits(row) + 3);
 
-    read = sscanf(msg, "%*[^@]@%*[^:]:%*[^:]:%s", parsedMsg.command->input);
-    if (read != 1)
+    if (parsedMsg->command == NULL)
+    {
+        parsedMsg->command        = malloc(sizeof *parsedMsg->command);
+        parsedMsg->command->input = malloc(payloadLength);
+    }
+    else
+    {
+        parsedMsg->command        = realloc(parsedMsg->command, sizeof *parsedMsg->command);
+        parsedMsg->command->input = realloc(parsedMsg->command->input, payloadLength);
+    }
+
+    // clear memory
+    memset(parsedMsg->command->input, 0, payloadLength);
+    memset(parsedMsg->command, 0, sizeof parsedMsg->command);
+    memset(parsedMsg, 0, sizeof parsedMsg);
+
+    parsedMsg->header.code         = code;
+    parsedMsg->command->coords.row = row;
+
+    read = sscanf(msg,
+                  "%*d:%d:%d:%*d@%*d:%c:%s",
+                  &parsedMsg->header.sheetVersion,
+                  &parsedMsg->header.senderId,
+                  &parsedMsg->command->coords.col,
+                  parsedMsg->command->input);
+
+    if (read != 4)
     {
         fprintf(stderr, "\nParsing the client message failed\n");
         // TODO maybe exit?
     }
 
-    if (parsedMsg.command->coords.col == -1 && parsedMsg.command->coords.row == -1 && strcmp(parsedMsg.command->input, "None") == 0)
+    if (parsedMsg->command->coords.col == '!' && parsedMsg->command->coords.row == -1 && strcmp(parsedMsg->command->input, "None") == 0)
     {
-        free(parsedMsg.command);
-        parsedMsg.command = NULL;
+        free(parsedMsg->command);
+        parsedMsg->command = NULL;
     }
 
-    return parsedMsg;
 } // end function parseClientMsg

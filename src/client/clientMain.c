@@ -19,21 +19,23 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
-void waitForSheet(struct ServerMessage *data)
+// GLOBALS TO BE USED IN SIGNALS //
+
+int shouldWait = 1;
+
+// END GLOBALS //
+
+void *waitForSheet(struct ServerMessage *data)
 {
+    //thread handles connection to server and sheet buffering
     int const PORT   = 10000;
     const char *HOST = "127.0.0.1";
     struct sockaddr_in addr;
 
-    printf("\nTHREAD!!!\n");
-    //child handles connection to server and sheet buffering
-
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    printf("%d sock", sock);
-
-    printf("\nThread: %p\n", data);
 
     int i = 0;
     if (sock > 0)
@@ -48,25 +50,71 @@ void waitForSheet(struct ServerMessage *data)
             //raise(SIGUSR1);
         }
 
+        //test for memory usage levels
+        char *t = NULL;
         while (1)
         {
-            sleep(2);
             data->header.code         = OK;
             data->header.senderId     = 4;
-            data->header.sheetVersion = ++i;
-            data->message             = NULL;
-            data->sheet.grid          = NULL;
-            data->sheet.lineLength    = 0;
-            data->sheet.rowCount      = 0;
-            data->sheet.size          = 0;
+            data->header.sheetVersion = ++i % 100000000;
+            data->sheet.lineLength    = 112;
+            data->sheet.rowCount      = 20;
+            data->sheet.size          = 9;
 
-            printf("\nTHREAD: %d", data->header.sheetVersion);
+            if (data->sheet.grid == NULL)
+            {
+                data->sheet.grid = calloc(data->sheet.rowCount, sizeof *data->sheet.grid);
+                for (int i = 0; i < data->sheet.rowCount; i++)
+                {
+                    data->sheet.grid[i] = calloc(data->sheet.lineLength + 1, sizeof *(data->sheet.grid[i]));
+                }
+            }
+            else
+            {
+                data->sheet.grid = realloc(data->sheet.grid, data->sheet.rowCount * (sizeof *data->sheet.grid));
+                for (int i = 0; i < data->sheet.rowCount; i++)
+                {
+                    data->sheet.grid[i] = realloc(data->sheet.grid[i], data->sheet.lineLength + 1 * (sizeof *(data->sheet.grid[i])));
+                }
+            }
+
+            strcpy(data->sheet.grid[0], "        A           B           C           D           E           F           G           H           I      ");
+
+            strcpy(data->sheet.grid[1], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[2], "1 | Balance   |           |           |           |           |           | 2.415e+07 |           | Cumula... |");
+            strcpy(data->sheet.grid[3], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[4], "2 |           |    789.00 |           |           |           |           |           |           |           |");
+            strcpy(data->sheet.grid[5], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[6], "3 |           |           |           |           |           |           |           |           |           |");
+            strcpy(data->sheet.grid[7], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[8], "4 |           |           |           |           |           |           |           |           |           |");
+            strcpy(data->sheet.grid[9], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[10], "5 |           |           |           |           |           |           |           |           |           |");
+            strcpy(data->sheet.grid[11], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[12], "6 |           |           |           |           |           |           |           |           |           |");
+            strcpy(data->sheet.grid[13], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[14], "7 |           |           |           |           |           |           |           |           |           |");
+            strcpy(data->sheet.grid[15], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[16], "8 |           |           |           |           |           |           |           |           |           |");
+            strcpy(data->sheet.grid[17], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+            strcpy(data->sheet.grid[18], "9 |           |           |           |           |  25789.00 |           |           |           |           |");
+            strcpy(data->sheet.grid[19], "  +-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+");
+
+            serializeServerMsg(*data, &t);
+
+            parseServerMsg(t, data);
+
+            shouldWait=0;
+
+            //printf("THREAD: %d\n", data->header.sheetVersion);
         }
     }
     else
     {
         //raise(SIGUSR1);
     }
+
+    return NULL;
 }
 
 void exitOnFailure(int sig, siginfo_t *info, void *ucontext)
@@ -81,19 +129,24 @@ int main(int argc, char const *argv[])
     struct sigaction action;
     pthread_t thread;
 
+    initServerMessage(&s_msg);
+
     action.sa_flags     = SA_SIGINFO;
     action.sa_sigaction = &exitOnFailure;
 
     sigaction(SIGUSR1, &action, NULL);
 
     //thread handles connection to server and sheet buffering
-    pthread_create(&thread, NULL, waitForSheet, &s_msg);
+    pthread_create(&thread, NULL, (void *(*)(void *))waitForSheet, &s_msg);
 
     printf("\nMain: %p\n", &s_msg);
 
-    while (1){
-        sleep(6);
-        printf("\n%d", s_msg.header.sheetVersion);
+    while (1)
+    {
+        while (shouldWait)
+            ;
+        sleep(4);
+        printf("%d\n", s_msg.header.sheetVersion);
     }
 
     return 0;
