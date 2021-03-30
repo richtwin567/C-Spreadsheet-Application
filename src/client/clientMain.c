@@ -22,17 +22,83 @@
 #include <time.h>
 #include <unistd.h>
 
-// GLOBALS TO BE USED IN BOTH THREADS//
+// GLOBALS TO BE USED IN BOTH THREADS AND IN SIGNALS //
 
 int shouldMainWait  = 1;  // whether the main thread should wait until an event occurs in the child thread
 int shouldChildWait = 0;  // whether the child thread should wait until an event occurs in the child thread
 int bufferIsDirty   = 0;  // whether there is a pending message for the user
 int sock            = -1; // the socket file descriptor for connecting to the server
-int didFail         = 0;  // whether or not the server failed to start
 pthread_t thread;         // a thread that will handle incoming server messages
 pthread_t mainThread;     // the main thread which handles user input
 
 // END GLOBALS //
+
+// FUNCTIONS TO HANDLE PROGRAM EXIT //
+
+/**
+ * @brief Send an exit signal to main thread    
+ * 
+ * @param msg An error message to print before exit
+ */
+void sendExitSignal(char *msg)
+{
+    printErrorMsg(msg, NULL);
+    pthread_kill(mainThread, SIGUSR1);
+    // wait for signal to be handled
+    while (1)
+        ;
+}
+
+/**
+ * @brief Exits a thread leaving the cleanup to the main thread
+ * 
+ * @param sig 
+ * @param info 
+ * @param ucontext 
+ */
+void exitThread(int sig, siginfo_t *info, void *ucontext)
+{
+    if (pthread_self() == thread)
+    {
+        pthread_exit(NULL);
+    }
+}
+
+/**
+ * @brief Exit program after killing the thread and closing the socket
+ *
+ * @param code exit code 
+ */
+void exitProgram(int code)
+{
+    if (pthread_self() == mainThread)
+    {
+        pthread_kill(thread, SIGUSR2);
+        close(sock);
+        pthread_join(thread, NULL);
+        exit(code);
+    }
+}
+
+/**
+ * @brief Exit program on signal
+ * 
+ * @param sig 
+ * @param info 
+ * @param ucontext 
+ */
+void exitOnSignal(int sig, siginfo_t *info, void *ucontext)
+{
+    if (sig == SIGUSR1)
+    {
+        printErrorMsg("Failed to start", NULL);
+    }
+    exitProgram(sig);
+}
+
+// END OF EXIT FUNCTIONS //
+
+// FUNCTIONS TO HANDLE RECEIVING SERVER MESSAGES //
 
 /**
  * @brief Receives a message through the socket
@@ -87,19 +153,6 @@ void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
 }
 
 /**
- * @brief Send an exit signal to main thread    
- * 
- * @param msg An error message to print before exit
- */
-void sendExitSignal(char *msg)
-{
-    printErrorMsg(msg, NULL);
-    pthread_kill(mainThread, SIGUSR1);
-    while (1)
-        ;
-}
-
-/**
  * @brief Connects to the server and waits for spreadsheet updates
  * 
  * @param data the struct to store the data in
@@ -123,10 +176,7 @@ void *waitForSheet(struct ServerMessage *data)
         addr.sin_family = AF_INET;
         if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) <= 0)
         {
-            printErrorMsg("Invalid server address", NULL);
-            pthread_kill(mainThread, SIGUSR1);
-            while (1)
-                ;
+            sendExitSignal("Invalid server address");
         }
 
         printInfoMsg("> Connecting to server...");
@@ -162,51 +212,7 @@ void *waitForSheet(struct ServerMessage *data)
     pthread_exit(NULL);
 }
 
-/**
- * @brief Exits a thread leaving the cleanup to the main thread
- * 
- * @param sig 
- * @param info 
- * @param ucontext 
- */
-void exitThread(int sig, siginfo_t *info, void *ucontext)
-{
-    if (pthread_self() == thread)
-    {
-        pthread_exit(NULL);
-    }
-}
-
-/**
- * @brief Exit program after killing the thread and closing the socket
- * 
- */
-void exitProgram(int code)
-{
-    if (pthread_self() == mainThread)
-    {
-        pthread_kill(thread, SIGUSR2);
-        close(sock);
-        pthread_join(thread, NULL);
-        exit(code);
-    }
-}
-
-/**
- * @brief Exit program on signal
- * 
- * @param sig 
- * @param info 
- * @param ucontext 
- */
-void exitOnSignal(int sig, siginfo_t *info, void *ucontext)
-{
-    if (sig == SIGUSR1)
-    {
-        printErrorMsg("Failed to start", NULL);
-    }
-    exitProgram(sig);
-}
+// END MESSAGE RECEIVING FUNCTONS //
 
 int main(int argc, char const *argv[])
 {
