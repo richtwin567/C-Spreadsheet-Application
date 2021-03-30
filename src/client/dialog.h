@@ -1,3 +1,7 @@
+#ifndef _DIALOG_H_
+#define _DIALOG_H_
+
+
 /**
  * @file dialog.h
  * @author 
@@ -128,3 +132,6 @@ int promptMenu()
     free(temp);
     return choice;
 }
+
+
+#endif

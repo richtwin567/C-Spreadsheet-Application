@@ -1,3 +1,6 @@
+#ifndef _CODE_H_
+#define _CODE_H_
+
 /**
  * @file code.h
  * @author 
@@ -31,3 +34,6 @@ enum Code
     SAVE    = 2  // A request to save the spreadsheet
 
 };
+
+
+#endif

@@ -1,3 +1,9 @@
+
+// temp
+#include <unistd.h>
+#include <stdio.h>
+#define LOG(x) printf(x)
+
 #include <stdlib.h>
 #include "server.h"
 #include "../interface/message.h"
@@ -5,40 +11,67 @@
 
 int main(int argc, char** argv)
 {
-	int portNo = atoi(argv[1]);
-	const unsigned int clientCap = 5;
+	int portNo = 10000;
+	const unsigned int clientCap = 10;
+
+	if(argc == 2)
+	{
+		portNo = atoi(argv[1]);
+	}
 
 	// Client connection thread
 	pthread_t connectionThread = {0};
 	int threadError = 0;
 		
 	Server server = startServer(portNo, clientCap);
-	
+
+
 	if(server.state == SERVER_ACTIVE)
 	{
+		LOG("[SERVER] Active...\n");
+		
+		pthread_mutex_init(&server.serverDataLock, NULL);
 		pthread_mutex_init(&server.messageQueueLock, NULL);
 
-		if(!(threadError = pthread_create(&connectionThread, NULL,
-										 acceptClientsAsync, &server)))
+		if((threadError = pthread_create(&connectionThread, NULL,
+										 (void*)acceptClientsAsync,
+										 &server)) == 0)
 		{
 			// TODO(afb) :: log success
+			LOG("[SERVER] Accepting clients...\n");
 		}
 		else
 		{
 			// TODO(afb) :: handle error
+			printf("[SERVER] Failed to create thread: %d\n", threadError);
+			return -1;
 		}
 
 		
-		while(!shouldClose())
+		
+		while(!shouldClose(server))
 		{
-			
-			struct Command* msg = getNextMessage(server.messages);
+
+			//struct Command msg = getNextMessage(server.messages);
 			
 			// CommandOutput result = executeCommand(command);
+
+			fflush(stdout);
+			//sleep(5);
+			if(server.connectedClientsCount > 0)
+				break;
 		}
 	}
 	else
 	{
 		// TODO(afb) :: log error
+		LOG("[SERVER] Failed to start.\n");
 	}
+
+
+	// TODO(afb) :: Cleanup resources
+	LOG("[SERVER] Closing...\n");
+
+	close(server.socketNumber);
+	return 0;
 }

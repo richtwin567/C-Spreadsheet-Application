@@ -1,3 +1,6 @@
+#ifndef _SPREADSHEET_DATA_H_
+#define _SPREADSHEET_DATA_H_
+
 /**
  * @file spreadsheetData.h
  * @author 
@@ -40,3 +43,5 @@ struct Command
     struct SheetCoord coords; // The coordinates for the move
     char *input;              // The letter to be placed at coords
 };
+
+#endif

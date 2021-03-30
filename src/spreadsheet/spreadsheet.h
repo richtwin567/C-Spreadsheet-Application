@@ -1,3 +1,6 @@
+#ifndef _SPREADSHEET_H_
+#define _SPREADSHEET_H_
+
 #include "../utils/utils.h"
 #include "spreadsheetData.h"
 
@@ -340,3 +343,5 @@ struct Sheet copySheet(struct Sheet sheet)
 
     return copy;
 }// end function copySheet
+
+#endif
