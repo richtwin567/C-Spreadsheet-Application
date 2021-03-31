@@ -2,7 +2,6 @@
 // temp
 #include <unistd.h>
 #include <stdio.h>
-#define LOG(x) printf(x)
 
 #include <stdlib.h>
 #include "server.h"
@@ -28,7 +27,7 @@ int main(int argc, char** argv)
 
 	if(server.state == SERVER_ACTIVE)
 	{
-		LOG("[SERVER] Active...\n");
+		printf("[SERVER] Active...\n");
 		
 		pthread_mutex_init(&server.serverDataLock, NULL);
 		pthread_mutex_init(&server.messageQueueLock, NULL);
@@ -38,7 +37,7 @@ int main(int argc, char** argv)
 										 &server)) == 0)
 		{
 			// TODO(afb) :: log success
-			LOG("[SERVER] Accepting clients...\n");
+			printf("[SERVER] Accepting clients...\n");
 		}
 		else
 		{
@@ -47,30 +46,40 @@ int main(int argc, char** argv)
 			return -1;
 		}
 
-		
-		
 		while(!shouldClose(server))
 		{
 
-			//struct Command msg = getNextMessage(server.messages);
-			
-			// CommandOutput result = executeCommand(command);
+			struct Command* msg = getNextMessage(server.messages);
 
+			if(msg)
+			{
+				printf("%s\n", msg->input);
+				// CommandOutput result = executeCommand(command);
+			}
+			else
+			{
+				printf("[SERVER] No messages to process\n");
+			}
+
+			printf("[SERVER] Connected clients: %d\n",
+				   server.connectedClientsCount);
+			
+			
 			fflush(stdout);
-			//sleep(5);
-			if(server.connectedClientsCount > 0)
-				break;
+
+			// if(server.connectedClientsCount > 2)
+			//  	break;
 		}
 	}
 	else
 	{
 		// TODO(afb) :: log error
-		LOG("[SERVER] Failed to start.\n");
+		printf("[SERVER] Failed to start.\n");
 	}
 
 
 	// TODO(afb) :: Cleanup resources
-	LOG("[SERVER] Closing...\n");
+	printf("[SERVER] Closing...\n");
 
 	close(server.socketNumber);
 	return 0;

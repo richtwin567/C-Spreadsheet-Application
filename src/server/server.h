@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "../spreadsheet/spreadsheetData.h"
+#include "../interface/message.h"
 
 #define MESSAGE_CAPACITY 32
 
@@ -21,7 +22,7 @@ enum ServerState
 
 typedef struct _MessageQueue
 {
-	struct Command messages[MESSAGE_CAPACITY];
+	struct Command* messages[MESSAGE_CAPACITY];
 
 	int first;
 	int count;
@@ -50,18 +51,20 @@ typedef struct _Server
 }Server;
 
 
+#define MAX_MESSAGE_LENGTH 255
 typedef struct _ClientMessageThread
 {
 	int socketNumber;
 	pthread_mutex_t* lock;
+	MessageQueue* messageQueue;
 
-	// TODO(afb) :: Add message queue
+	char procBuffer[MAX_MESSAGE_LENGTH];
 }ClientMessageThread;
 
 
-struct Command getNextMessage(MessageQueue* messages)
+struct Command* getNextMessage(MessageQueue* messages)
 {
-	struct Command result;
+	struct Command* result = NULL;
 
 	if(messages->first != messages->count)
 	{
@@ -77,7 +80,7 @@ struct Command getNextMessage(MessageQueue* messages)
 // NOTE(afb) :: Will eat the first message if the buffer is full
 // shouldn't cause any problems though since the messages shouldn't
 // take long to process and pile up
-void addNewMessage(MessageQueue* messages, struct Command command)
+void addMessage(MessageQueue* messages, struct Command* command)
 {
 	messages->messages[messages->count++] = command;
 	if(messages->count >= MESSAGE_CAPACITY)
@@ -87,13 +90,37 @@ void addNewMessage(MessageQueue* messages, struct Command command)
 
 void* handleClientMessages(void* args)
 {
+	
 	// TODO(afb) :: Complete funcion
+	ClientMessageThread* data = (ClientMessageThread*)args;
 
-	// TODO(afb) :: Wait for messages
+	int quit = 0;
+	
+	// TODO(afb) :: Consider if its better to use read or rcv.
+	while(!quit)
+	{
+		int error = read(data->socketNumber,
+						 data->procBuffer,
+						 MAX_MESSAGE_LENGTH);
 
-	// TODO(afb) :: Process messagge
-
-	// TODO(afb) :: Add message to message queue
+		if(error < 0)
+		{
+			// TODO(afb) :: log error
+		}
+		else
+		{
+			
+			
+			struct ClientMessage result = {0};
+			parseClientMsg(data->procBuffer, &result);
+			// TODO(afb) :: Process messagge to see if valid
+			
+			pthread_mutex_lock(data->lock);
+			addMessage(data->messageQueue, result.command);
+			pthread_mutex_unlock(data->lock);
+		}
+	}
+	
 }
 
 
@@ -101,12 +128,6 @@ void acceptClientsAsync(void* args)
 {
 	Server* server = (Server*)args;
 	
-	// DONE(afb) :: Maybe need to move mutex to main function
-	// so that it can access the message queue
-	
-	// Lock for using clients to use message queue
-
-
 	ClientMessageThread* threadData = (ClientMessageThread*)calloc(server->maxClientCapacity, sizeof(ClientMessageThread));
 
 	// Client message handler threads
@@ -118,17 +139,17 @@ void acceptClientsAsync(void* args)
 	// Run until server is no longer active
 	while(server->state == SERVER_ACTIVE)
 	{
-		// temp
-		LOG("[SERVER] Started accepting clients...\n");
+		printf("[SERVER] Started accepting clients...\n");
 		
 		int newClient = accept(server->socketNumber,
 							   (struct sockaddr*)&newClientAddress,
 							   &newClientAddressSize);
 
-		ClientMessageThread* threadData = &(threadData[server->connectedClientsCount]);
-		threadData->socketNumber = newClient;
-		threadData->lock = &server->messageQueueLock;
-		
+		ClientMessageThread* data = &(threadData[server->connectedClientsCount]);
+		data->socketNumber = newClient;
+		data->lock = &server->messageQueueLock;
+		data->messageQueue = server->messages;
+			
 		if(newClient < 0)
 		{
 			// TODO(afb) :: handle error
@@ -140,14 +161,12 @@ void acceptClientsAsync(void* args)
 			pthread_t* th = &(clientMessageHandler[server->connectedClientsCount++]);
 			pthread_mutex_unlock(&server->serverDataLock);
 			
-			// TODO(afb) :: Send the additional needed data to handle
-			// client
 			// NOTE(afb) :: Create a new thread to process client
 			// messages.
 			int threadError = 0;
 			if(!(threadError = pthread_create(th, NULL,
 											  handleClientMessages,
-											  threadData)))
+											  data)))
 			{
 				// TODO(afb) :: log sucess
 				pthread_detach(*th);
@@ -159,7 +178,7 @@ void acceptClientsAsync(void* args)
 		}
 	
 	}
-
+	
 	pthread_exit(NULL);
 }
 

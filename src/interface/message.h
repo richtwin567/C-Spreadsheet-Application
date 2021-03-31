@@ -1,3 +1,6 @@
+#ifndef _MESSAGE_H_
+#define _MESSAGE_H_
+
 /**
  * @file message.h
  * @author 
@@ -367,3 +370,6 @@ void parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
     }
 
 } // end function parseClientMsg
+
+
+#endif

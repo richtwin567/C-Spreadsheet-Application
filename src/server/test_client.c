@@ -37,7 +37,7 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	//sleep(3);
+	sleep(10);
 	close(sockfd);
 
 	return 0;
