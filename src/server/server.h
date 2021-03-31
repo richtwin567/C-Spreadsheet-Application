@@ -124,7 +124,7 @@ void* handleClientMessages(void* args)
 }
 
 
-void acceptClientsAsync(void* args)
+void* acceptClientsAsync(void* args)
 {
 	Server* server = (Server*)args;
 	

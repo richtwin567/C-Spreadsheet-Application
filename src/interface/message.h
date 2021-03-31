@@ -11,8 +11,7 @@
  * @copyright Copyright (c) 2021
  * 
  */
-#include "../spreadsheet/spreadsheetData.h"
-#include "../utils/utils.h"
+#include "../spreadsheet/spreadsheet.h"
 #include "code.h"
 
 #include <stdio.h>
@@ -56,6 +55,19 @@ struct ServerMessage
     struct Sheet sheet; // The latest version of the spreadsheet
     char *message;      // Any additional message the server wants to send to the client. This may be null.
 };
+
+/**
+ * @brief Get the Payload Length from the header
+ * 
+ * @param headerStr the header
+ * @return int the payload length
+ */
+int getPayloadLength(char *headerStr)
+{
+    int length=0;
+    sscanf(headerStr, "%*d:%*d:%*d:%d", &length);
+    return length;
+}
 
 /**
  * @brief Initializes a ServerMessage struct's pointers to null

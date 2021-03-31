@@ -5,7 +5,6 @@
 
 #include <stdlib.h>
 #include "server.h"
-#include "../interface/message.h"
 
 
 int main(int argc, char** argv)
@@ -45,6 +44,7 @@ int main(int argc, char** argv)
 			printf("[SERVER] Failed to create thread: %d\n", threadError);
 			return -1;
 		}
+
 
 		while(!shouldClose(server))
 		{

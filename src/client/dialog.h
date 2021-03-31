@@ -17,6 +17,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/**
+ * @brief Prompts the user to enter a set of coordinates on the spreadsheet 
+ * 
+ * @return struct SheetCoord the coordinates entered
+ */
 struct SheetCoord promptForCell()
 {
     char *col = malloc(2 * (sizeof *col));
@@ -52,6 +57,11 @@ struct SheetCoord promptForCell()
     return coords;
 }
 
+/**
+ * @brief Prompt the user for data to enter into a cell 
+ * 
+ * @return char* the data entered
+ */
 char *promptForData()
 {
     //TODO pointer check
@@ -71,6 +81,12 @@ char *promptForData()
     return data;
 }
 
+/**
+ * @brief Prints an error message with the code if given
+ * 
+ * @param err the error message
+ * @param code the error code
+ */
 void printErrorMsg(char *err, enum Code *code)
 {
     char *codeStr = malloc(5 * (sizeof *codeStr));
@@ -86,21 +102,41 @@ void printErrorMsg(char *err, enum Code *code)
     fprintf(stderr, "\n\033[0;31m[ERROR%s]: %s\033[0m\n", codeStr, err);
 }
 
+/**
+ * @brief Prints an informative message 
+ * 
+ * @param info the message to print
+ */
 void printInfoMsg(char *info)
 {
     printf("\n\033[0;34m%s\033[0m\n", info);
 }
 
+/**
+ * @brief Prints a warning message
+ * 
+ * @param warning the warning to print
+ */
 void printWarningMsg(char *warning)
 {
     printf("\n\033[0;33m%s\033[0m\n", warning);
 }
 
+/**
+ * @brief Prints a message indicating that something was completed succesfully
+ * 
+ * @param msg the message to print
+ */
 void printSuccessMsg(char *msg)
 {
     printf("\n\033[0;32m%s\033[0m\n", msg);
 }
 
+/**
+ * @brief Displays the menu and prompts the user to choose
+ * 
+ * @return int the choice the user made
+ */
 int promptMenu()
 {
     int choice;
@@ -133,5 +169,42 @@ int promptMenu()
     return choice;
 }
 
+/**
+ * @brief Print a message from the server in a colour based on the code
+ * 
+ * @param msg the server msg
+ */
+void printMsgFromCode(struct ServerMessage msg)
+{
+    if (msg.message == NULL)
+    {
+        // cancel printing if there is no message
+        return;
+    }
 
+    switch (msg.header.code)
+    {
+        case ACKNOWLEDGED:
+            break;
+
+        case OK:
+            printSuccessMsg(msg.message);
+            break;
+
+        case FORBIDDEN:
+        case COORD_NOT_FOUND:
+        case CONFLICT:
+        case DISCONNECTED:
+        case IMPOSSIBLE:
+        case NO_FUNCTION:
+        case CONN_REJECTED:
+            printErrorMsg(msg.message, &msg.header.code);
+            break;
+
+        default:
+            printInfoMsg(msg.message);
+            break;
+    }
+}
 #endif
+
