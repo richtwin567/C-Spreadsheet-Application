@@ -64,7 +64,7 @@ struct ServerMessage
  */
 int getPayloadLength(char *headerStr)
 {
-    int length=0;
+    int length = 0;
     sscanf(headerStr, "%*d:%*d:%*d:%d", &length);
     return length;
 }
@@ -202,8 +202,9 @@ int serializeServerMsg(struct ServerMessage msg, char **packet)
  * 
  * @param msg the string sent throught the socket
  * @param parsedMsg the message
+ * @return 0 on success or -1 on failure
  */
-void parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
+int parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
 {
     int payloadLength = 0;
     int messageLength = 0;
@@ -219,8 +220,9 @@ void parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
 
     if (read != 5)
     {
-        fprintf(stderr, "\nParsing the server message failed\n");
         // TODO maybe exit?
+        memset(parsedMsg, 0, sizeof parsedMsg);
+        return -1;
     }
 
     payloadLength -= countDigits(size) + countDigits(rowCount) + countDigits(lineLength) + 3;
@@ -264,7 +266,8 @@ void parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
         {
             parsedMsg->sheet.grid[i] = realloc(parsedMsg->sheet.grid[i], lineLength * (sizeof *(parsedMsg->sheet.grid[i])));
             memset(parsedMsg->sheet.grid[i], 0, sizeof parsedMsg->sheet.grid[i]);
-        }  }
+        }
+    }
 
     // clear memory
     memset(parsedMsg->message, 0, sizeof parsedMsg->message);
@@ -281,8 +284,9 @@ void parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
 
     if (read != 2)
     {
-        fprintf(stderr, "\nParsing the server message failed\n");
         // TODO maybe exit?
+        memset(parsedMsg, 0, sizeof parsedMsg);
+        return -1;
     }
 
     // fill grid
@@ -319,7 +323,7 @@ void parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
         free(parsedMsg->message);
         parsedMsg->message = NULL;
     }
-
+    return 0;
 } // end function parseServerMsg
 
 /**
@@ -327,8 +331,9 @@ void parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
  * 
  * @param msg the message to convert
  * @param parsedMsg the message
+ * @return 0 on success or -1 on failure
  */
-void parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
+int parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
 {
     int payloadLength, read, code, row;
 
@@ -337,8 +342,9 @@ void parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
 
     if (read != 3)
     {
-        fprintf(stderr, "\nParsing the client message failed\n");
         // TODO maybe exit?
+        memset(parsedMsg, 0, sizeof parsedMsg);
+        return -1;
     }
 
     payloadLength -= (countDigits(row) + 3);
@@ -371,8 +377,9 @@ void parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
 
     if (read != 4)
     {
-        fprintf(stderr, "\nParsing the client message failed\n");
         // TODO maybe exit?
+        memset(parsedMsg, 0, sizeof parsedMsg);
+        return -1;
     }
 
     if (parsedMsg->command->coords.col == '!' && parsedMsg->command->coords.row == -1 && strcmp(parsedMsg->command->input, "None") == 0)
@@ -381,7 +388,8 @@ void parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
         parsedMsg->command = NULL;
     }
 
-} // end function parseClientMsg
+    return 0;
 
+} // end function parseClientMsg
 
 #endif

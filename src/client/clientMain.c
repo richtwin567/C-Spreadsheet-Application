@@ -12,6 +12,7 @@
 #include "dialog.h"
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <signal.h>
@@ -132,7 +133,7 @@ void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
     // receive payload
     recv(sock, *msgPart, payloadLength, MSG_WAITALL);
 
-    strcat(*msg, *msgPart);
+    strncat(*msg, *msgPart, payloadLength);
 
     // don't write the new message yet if the main thread is using the current data
     // prevents the data from being changed as it is being accessed
@@ -159,7 +160,7 @@ void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
  */
 void *waitForSheet(struct ServerMessage *data)
 {
-    //thread handles connection to server and sheet buffering
+    // thread handles connection to server and sheet buffering
     const int PORT   = 10000;
     const char *HOST = "127.0.0.1";
     char *msgPart    = malloc(1);
@@ -225,7 +226,7 @@ int main(int argc, char const *argv[])
     char *packet       = NULL; // the packet to be sent to the server
     int currentVersion = 0;    // stores the version of the spreadsheet that the user is working on.
     // useful since the serverMsg buffer may be updated before the next request is sent by the client.
-    int packetLength   = 0;    // the length of the packet to be sent
+    int packetLength = 0; // the length of the packet to be sent
 
     // initialize message structs
     initServerMessage(&serverMsg);
