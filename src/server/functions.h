@@ -27,7 +27,6 @@
 enum CommandType
 {
     ARITHMETIC, // Commands that can be written as an arithmetic expression eg. (A5+A6)/B4
-    LOGICAL,    // Commands that require logical processing eg, IF, OR and AND functions
     PLACEMENT,  // A command to simply place a value in the cell ( no calculation )
     OTHER       // A command that does not fit into the other categories . It may be combination of logical and arithmetic or neither. eg. RANGE
 };
@@ -46,8 +45,7 @@ struct CommandInfo
 
 // implemented functions
 char *ARITHMETIC_FUNC[] = {"AVERAGE", "SUM"};
-char *OTHER_FUNC[]      = {"RANGE", "COUNT", "MAX", "MIN"};
-char *LOGICAL_FUNC[]    = {"IF", "OR", "AND", "NOT"};
+char *OTHER_FUNC[]      = {"RANGE"};
 
 /**
  * @brief A word to Capitalize
@@ -68,22 +66,39 @@ int isValidArg(char *arg)
     char *col = malloc(2 * (sizeof *col));
     char *row = malloc(2 * (sizeof row));
     int read  = sscanf(arg, "%1[a-zA-Z]%1[1-9]", col, row);
+    free(col);
+    free(row);
     return read == 2;
 }
 
-int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
+int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
 {
-    char *argStart = NULL;
-    char *argEnd   = NULL;
-    char *arg      = malloc(1);
-    int arglen     = 0;
-    char *operator;
+    char *argStart   = NULL;
+    char *argEnd     = NULL;
+    char *arg        = malloc(1);
+    char *valStr     = NULL;
+    int arglen       = 0;
+    int rangelen     = 0;
+    char *range      = NULL;
+    char *rangeEnd   = NULL;
+    char *rangeStart = NULL;
+    char *operator   = NULL;
+    char *countStr   = NULL;
+    char *next       = NULL;
+    char *input      = cmd->input;
+    char *funcName   = cmdi->funcName;
+    cmdi->args.expr  = malloc(1);
+    struct SheetCoord coords;
+    double val;
+    double res=0;
+    int read;
     input++;
-    argStart       = input;
-    cmd->args.expr = malloc(1);
+    argStart = input;
 
     if (funcName == NULL)
     {
+        *code = NO_FUNCTION;
+        return 0;
     }
 
     if (strcmp(funcName, "SUM") == 0 || strcmp(funcName, "AVERAGE") == 0)
@@ -100,6 +115,7 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
 
             if (arglen < 2)
             {
+                *code = BAD_SYNTAX;
                 return 0;
             }
 
@@ -107,19 +123,47 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
             strncpy(arg, argStart, arglen);
             arg[arglen] = '\0';
 
-            trim(arg);
+            arg = trim(arg);
 
             if (!isValidArg(arg))
             {
+                *code = BAD_SYNTAX;
                 return 0;
             }
 
-            cmd->args.expr = realloc(cmd->args.expr, 4 + strlen(cmd->args.expr));
-            if (strlen(cmd->args.expr) > 0)
+            coords.col = arg[0];
+            coords.row = arg[1] - '0';
+
+            if (!isOnSheet(*sheet, coords))
             {
-                strcat(cmd->args.expr, operator);
+                *code = COORD_NOT_FOUND;
+                return 0;
             }
-            strcat(cmd->args.expr, arg);
+
+            if (isPositionEmpty(*sheet, coords))
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+
+            valStr = getPosition(*sheet, coords);
+            valStr = trim(valStr);
+            read   = sscanf(valStr, "%lf", &val);
+
+            if (read != 1)
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+
+            res+=val;
+
+            cmdi->args.expr = realloc(cmdi->args.expr, 1 + strlen(valStr) + strlen(cmdi->args.expr));
+            if (strlen(cmdi->args.expr) > 0)
+            {
+                strcat(cmdi->args.expr, operator);
+            }
+            strcat(cmdi->args.expr, arg);
             argStart = ++argEnd;
         }
         else if (*input == ':')
@@ -129,24 +173,50 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
 
             if (arglen < 2)
             {
+                *code = BAD_SYNTAX;
                 return 0;
             }
 
             arg = realloc(arg, arglen + 1);
+            memset(arg, 0, sizeof arg);
             strncpy(arg, argStart, arglen);
             arg[arglen] = '\0';
 
-            trim(arg);
+            arg = trim(arg);
 
             if (!isValidArg(arg))
             {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+            coords.col = arg[0];
+            coords.row = arg[1] - '0';
+
+            if (!isOnSheet(*sheet, coords))
+            {
+                *code = COORD_NOT_FOUND;
                 return 0;
             }
 
-            char *rangeEnd;
-            char *rangeStart = ++input;
-            int rangelen;
-            char *range;
+            if (isPositionEmpty(*sheet, coords))
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+
+            valStr = getPosition(*sheet, coords);
+            valStr = trim(valStr);
+            read   = sscanf(valStr, "%lf", &val);
+
+            if (read != 1)
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+            free(valStr);
+
+            rangeStart = ++input;
+
             while (*input != '\0' && *input != ')' && *input != ',')
             {
                 input++;
@@ -154,6 +224,7 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
 
             if (*input == '\0')
             {
+                *code = BAD_SYNTAX;
                 return 0;
             }
             rangeEnd = input;
@@ -161,6 +232,7 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
 
             if (rangelen < 2)
             {
+                *code = BAD_SYNTAX;
                 return 0;
             }
 
@@ -169,47 +241,101 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
             strncpy(range, rangeStart, rangelen);
             range[rangelen] = '\0';
 
-            trim(range);
+            range = trim(range);
             if (!isValidArg(range))
             {
+                *code = BAD_SYNTAX;
                 return 0;
             }
+            coords.col = range[0];
+            coords.row = range[1] - '0';
+
+            if (!isOnSheet(*sheet, coords))
+            {
+                *code = COORD_NOT_FOUND;
+                return 0;
+            }
+
+            if (isPositionEmpty(*sheet, coords))
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+
+            valStr = getPosition(*sheet, coords);
+            valStr = trim(valStr);
+            read   = sscanf(valStr, "%lf", &val);
+
+            if (read != 1)
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+
+            free(valStr);
 
             if (arg[0] == range[0] && arg[1] < range[1])
             {
 
-                while (strcmp(arg, range) != 0 && *arg != '\0')
+                while (arg[1] <= range[1])
                 {
-                    cmd->args.expr = realloc(cmd->args.expr, 4 + strlen(cmd->args.expr));
+                    coords.col = arg[0];
+                    coords.row = arg[1] - '0';
+                    valStr     = getPosition(*sheet, coords);
+                    valStr     = trim(valStr);
+                    read       = sscanf(valStr, "%lf", &val);
 
-                    if (strlen(cmd->args.expr) > 0)
+                    if (read != 1)
                     {
-                        strcat(cmd->args.expr, operator);
+                        *code = IMPOSSIBLE;
+                        return 0;
                     }
-                    strcat(cmd->args.expr, arg);
+                    res+=val;
+
+                    cmdi->args.expr = realloc(cmdi->args.expr, 1 + strlen(valStr) + strlen(cmdi->args.expr));
+
+                    if (strlen(cmdi->args.expr) > 0)
+                    {
+                        strcat(cmdi->args.expr, operator);
+                    }
+                    strcat(cmdi->args.expr, arg);
                     arg[1] = arg[1] + 1;
                 }
-                argStart= rangeStart;
+                argStart = rangeEnd + 1;
             }
             else if (arg[0] < range[0] && arg[1] == range[1])
             {
-                while (strcmp(arg, range) != 0 && *arg != '\0')
+                while (arg[0] <= range[0])
                 {
-                    cmd->args.expr = realloc(cmd->args.expr, 4 + strlen(cmd->args.expr));
+                    coords.col = arg[0];
+                    coords.row = arg[1] - '0';
+                    valStr     = getPosition(*sheet, coords);
+                    valStr     = trim(valStr);
+                    read       = sscanf(valStr, "%lf", &val);
 
-                    if (strlen(cmd->args.expr) > 0)
+                    if (read != 1)
                     {
-                        strcat(cmd->args.expr, operator);
+                        *code = IMPOSSIBLE;
+                        return 0;
                     }
-                    strcat(cmd->args.expr, arg);
+                    res+=val;
+                    cmdi->args.expr = realloc(cmdi->args.expr, 1 + strlen(valStr) + strlen(cmdi->args.expr));
+
+                    if (strlen(cmdi->args.expr) > 0)
+                    {
+                        strcat(cmdi->args.expr, operator);
+                    }
+                    strcat(cmdi->args.expr, arg);
                     arg[0] = arg[0] + 1;
                 }
-                argStart= rangeStart;
+                argStart = rangeEnd + 1;
             }
             else
             {
+                *code = BAD_SYNTAX;
                 return 0;
             }
+            free(range);
         }
 
         input++;
@@ -221,53 +347,75 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
         argEnd = input;
         arglen = argEnd - argStart;
 
-        if (arglen < 2)
+        if (arglen >= 2)
         {
-            return 0;
+
+            arg = realloc(arg, arglen + 1);
+            strncpy(arg, argStart, arglen);
+            arg[arglen] = '\0';
+
+            arg = trim(arg);
+
+            if (!isValidArg(arg))
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+            coords.col = arg[0];
+            coords.row = arg[1] - '0';
+
+            if (!isOnSheet(*sheet, coords))
+            {
+                *code = COORD_NOT_FOUND;
+                return 0;
+            }
+
+            if (isPositionEmpty(*sheet, coords))
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+
+            valStr = getPosition(*sheet, coords);
+            valStr = trim(valStr);
+            read   = sscanf(valStr, "%lf", &val);
+
+            if (read != 1)
+            {
+                *code = IMPOSSIBLE;
+                return 0;
+            }
+
+            res+=val;
+            cmdi->args.expr = realloc(cmdi->args.expr, 1 + strlen(valStr) + strlen(cmdi->args.expr));
+            if (strlen(cmdi->args.expr) > 0)
+            {
+                strcat(cmdi->args.expr, operator);
+            }
+            strcat(cmdi->args.expr, arg);
+            free(valStr);
         }
-
-        arg = realloc(arg, arglen + 1);
-        strncpy(arg, argStart, arglen);
-        arg[arglen] = '\0';
-
-        trim(arg);
-
-        if (!isValidArg(arg))
-        {
-            return 0;
-        }
-
-        cmd->args.expr = realloc(cmd->args.expr, 4 + strlen(cmd->args.expr));
-        if (strlen(cmd->args.expr) > 0)
-        {
-            strcat(cmd->args.expr, operator);
-        }
-        strcat(cmd->args.expr, arg);
     }
     else
     {
+        *code = BAD_SYNTAX;
         return 0;
     }
 
     if (strcmp(funcName, "AVERAGE") == 0)
     {
-        int count  = 1;
-        char *next = strchr(cmd->args.expr, '+');
+        int count = 1;
+        next      = strchr(cmdi->args.expr, '+');
         while (next != NULL)
         {
-            next = strchr(next+1, '+');
+            next = strchr(next + 1, '+');
             count++;
         }
-        cmd->args.expr = realloc(cmd->args.expr, 3 + countDigits(count) + strlen(cmd->args.expr));
-        memmove(cmd->args.expr+1, cmd->args.expr, strlen(cmd->args.expr));
-        cmd->args.expr[0]='(';
-        cmd->args.expr[strlen(cmd->args.expr)]=')';
-        strcat(cmd->args.expr, "/");
-        char* countStr = malloc(countDigits(count));
-        sprintf(countStr, "%d", count);
-        strcat(cmd->args.expr, countStr);
-        //sprintf(cmd->args.expr, "(%s)/%d", cmd->args.expr, count);
+        res/=count;
     }
+    *code = OK;
+    
+    placeNumber(sheet, cmd->coords,res);
     return 1;
 }
 
@@ -277,32 +425,40 @@ int tryParseArthimetic(char *funcName, char *input, struct CommandInfo *cmd)
  * @param expr The string to store the parsed command in if successful
  * @param code Set to OK if successful or BAD_SYNTAX, NO_FUNCTION or IMPOSSIBLE depending on the error
  */
-struct CommandInfo parseCommand(char *expr, enum Code *code)
+void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
 {
-    struct CommandInfo cmd;
+    struct CommandInfo cmdi;
+    int read;
+    double val;
 
-    if (*expr == '=')
+    if(!isOnSheet(*sheet,cmd->coords)){
+        *code= COORD_NOT_FOUND;
+        return;
+    }
+
+    if (*cmd->input == '=')
     {
-        expr++;
-        char *commandStart = expr;
+        cmd->input++;
+        char *commandStart = cmd->input;
         char *commandEnd   = NULL;
 
         // try to determine if a fucntion is being called by the presence of a (
-        while (*expr != '\0')
+        while (*cmd->input != '\0')
         {
-            if (*expr == '(')
+            if (*cmd->input == '(')
             {
-                commandEnd = expr;
+                commandEnd = cmd->input;
                 break;
             }
-            expr++;
+            cmd->input++;
         }
 
         printf("%s\n", commandEnd);
 
         if (commandEnd == NULL)
         {
-            // try to process with regular operators +, /, -, * or >=, <=, >, <, ==
+            *code =NO_FUNCTION;
+            return;
         }
         else
         {
@@ -317,7 +473,6 @@ struct CommandInfo parseCommand(char *expr, enum Code *code)
 
             int isImplemented = 0;
             int len_arith     = sizeof(ARITHMETIC_FUNC) / sizeof(ARITHMETIC_FUNC[0]);
-            int len_logical   = sizeof(LOGICAL_FUNC) / sizeof(LOGICAL_FUNC[0]);
             int len_other     = sizeof(OTHER_FUNC) / sizeof(OTHER_FUNC[0]);
 
             // check if it is arithmetic
@@ -326,55 +481,41 @@ struct CommandInfo parseCommand(char *expr, enum Code *code)
                 if (strcmp(ARITHMETIC_FUNC[i], name) == 0)
                 {
                     isImplemented = 1;
-                    cmd.funcName  = ARITHMETIC_FUNC[i];
-                    break;
-                }
-            }
-
-            for (int i = 0; i < len_logical; i++)
-            {
-                if (strcmp(LOGICAL_FUNC[i], name) == 0)
-                {
-                    isImplemented = 2;
-                    cmd.funcName  = LOGICAL_FUNC[i];
-                    break;
-                }
-            }
-
-            for (int i = 0; i < len_other; i++)
-            {
-                if (strcmp(OTHER_FUNC[i], name) == 0)
-                {
-                    isImplemented = 3;
-                    cmd.funcName  = OTHER_FUNC[i];
+                    cmdi.type=ARITHMETIC;
+                    cmdi.funcName  = ARITHMETIC_FUNC[i];
                     break;
                 }
             }
 
             if (!isImplemented)
             {
-                memset(&cmd, 0, sizeof(cmd));
+                for (int i = 0; i < len_other; i++)
+                {
+                    if (strcmp(OTHER_FUNC[i], name) == 0)
+                    {
+                        isImplemented = 3;
+                        cmdi.type=OTHER;
+                        cmdi.funcName  = OTHER_FUNC[i];
+                        break;
+                    }
+                }
+            }
+
+            if (!isImplemented)
+            {
+                memset(&cmdi, 0, sizeof(cmdi));
                 *code = NO_FUNCTION;
-                return cmd;
+                return;
             }
 
             switch (isImplemented)
             {
                 case 1:
-                    if (!tryParseArthimetic(name, expr, &cmd))
+                    if (!tryParseArthimetic(cmd, &cmdi, code, sheet))
                     {
-                        *code = BAD_SYNTAX;
-                        memset(&cmd, 0, sizeof(cmd));
-                        return cmd;
+                        memset(&cmdi, 0, sizeof(cmdi));
                     }
-                    else
-                    {
-                        *code = OK;
-                        return cmd;
-                    }
-
-                    break;
-                case 2:
+                    return;
 
                     break;
                 case 3:
@@ -388,7 +529,18 @@ struct CommandInfo parseCommand(char *expr, enum Code *code)
     }
     else
     {
-        cmd.type = PLACEMENT;
+        cmdi.type = PLACEMENT;
+        read = sscanf(cmd->input, "%lf", &val);
+        if (read==1)
+        {
+            placeNumber(sheet,cmd->coords,val);
+        }else
+        {
+            placeWord(sheet,cmd->coords, trim(cmd->input));
+        }
+        *code=OK;
+        return;
+        
     }
 }
 
