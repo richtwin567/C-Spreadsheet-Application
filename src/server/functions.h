@@ -444,6 +444,242 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
     return 1;
 }
 
+
+int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
+{
+    double rangearr[] = {};
+    int index        = 0;
+    char *argStart   = NULL;
+    char *argEnd     = NULL;
+    char *arg        = malloc(1);
+    char *valStr     = NULL;
+    int arglen       = 0;
+    int rangelen     = 0;
+    char *range      = NULL;
+    char *rangeEnd   = NULL;
+    char *rangeStart = NULL;
+    char *operator   = NULL;
+    char *countStr   = NULL;
+    char *next       = NULL;
+    char *input      = cmd->input;
+    char *funcName   = cmdi->funcName;
+    cmdi->args.expr  = calloc(1,1);
+    struct SheetCoord coords;
+    double val;
+    double res;
+    int read;
+    input++;
+    argStart = input;
+
+    while (*input != '\0')
+    {
+        if (*input == ',' || *input==':')
+        {
+            argEnd = input;
+            arglen = argEnd - argStart;
+
+            if (arglen < 2)
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+
+            arg = realloc(arg, arglen + 1);
+            memset(arg, 0, sizeof arg);
+            strncpy(arg, argStart, arglen);
+            arg[arglen] = '\0';
+
+            arg = trim(arg);
+
+            if (!isValidArg(arg))
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+            coords.col = arg[0];
+            coords.row = arg[1] - '0';
+            
+            rangeStart = ++input;
+
+            while (*input != '\0' && *input != ')' && *input != ',')
+            {
+                input++;
+            }
+
+            if (*input == '\0')
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+            rangeEnd = input;
+            rangelen = rangeEnd - rangeStart;
+
+            if (rangelen < 2)
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+
+            range = malloc(1);
+            range = realloc(range, rangelen + 1);
+            strncpy(range, rangeStart, rangelen);
+            range[rangelen] = '\0';
+
+            range = trim(range);
+            if (!isValidArg(range))
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+
+
+            if (arg[0] == range[0] && arg[1] < range[1])
+            {
+
+                while (arg[1] <= range[1])
+                {
+                    coords.col = arg[0];
+                    coords.row = arg[1] - '0';
+
+                    if (!isOnSheet(*sheet, coords))
+                    {
+                        *code = COORD_NOT_FOUND;
+                        return 0;
+                    }
+
+                    if (isPositionEmpty(*sheet, coords))
+                    {
+                        arg[1] = arg[1] + 1;
+                        continue;
+                    }
+                    valStr = getPosition(*sheet, coords);
+                    valStr = trim(valStr);
+                    read   = sscanf(valStr, "%lf", &val);
+
+                    if (read != 1)
+                    {
+                        arg[1] = arg[1] + 1;
+                        continue;
+                    }
+                    
+                    rangearr[index] = val;
+                    index++;
+                }
+            }
+            else if (arg[0] < range[0] && arg[1] == range[1])
+                {
+                    while (arg[0] <= range[0])
+                    {
+                        coords.col = arg[0];
+                    coords.row = arg[1] - '0';
+
+                    if (!isOnSheet(*sheet, coords))
+                    {
+                        *code = COORD_NOT_FOUND;
+                        return 0;
+                    }
+
+                    if (isPositionEmpty(*sheet, coords))
+                    {
+                        arg[0] = arg[0] + 1;
+                        continue;
+                    }
+                    valStr = getPosition(*sheet, coords);
+                    valStr = trim(valStr);
+                    read   = sscanf(valStr, "%lf", &val);
+
+                    if (read != 1)
+                    {
+                        arg[0] = arg[0] + 1;
+                        continue;
+                    }
+                    rangearr[index] = val;
+                    index++;
+                }
+                argStart = rangeEnd + 1;
+            }
+            else
+                {
+                    *code = BAD_SYNTAX;
+                    return 0;
+                }
+            free(range);
+        }
+        input++;
+    }
+
+    input--;
+    if (*input == ')')
+    {
+        argEnd = input;
+        arglen = argEnd - argStart;
+
+        if (arglen >= 2)
+        {
+
+            arg = realloc(arg, arglen + 1);
+            strncpy(arg, argStart, arglen);
+            arg[arglen] = '\0';
+
+            arg = trim(arg);
+
+            if (!isValidArg(arg))
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
+            coords.col = arg[0];
+            coords.row = arg[1] - '0';
+
+            if (!isOnSheet(*sheet, coords))
+            {
+                *code = COORD_NOT_FOUND;
+                return 0;
+            }
+
+            if (!isPositionEmpty(*sheet, coords))
+            {
+
+                valStr = getPosition(*sheet, coords);
+                valStr = trim(valStr);
+                read   = sscanf(valStr, "%lf", &val);
+
+                if (read != 1)
+                {
+                    *code = IMPOSSIBLE;
+                    return 0;
+                }
+
+                rangearr[index] = val;
+                index++;
+            }
+        }
+    }
+     else
+    {
+        *code = BAD_SYNTAX;
+        return 0;
+    }
+
+    if (strcmp(funcName, "AVERAGE") == 0)
+    {
+        double min = MIN(rangearr);
+        double max = MAX(rangearr);
+        res = max - min;
+    }
+    *code = OK;
+
+    if (arg != NULL)
+    {
+        free(arg);
+    }
+
+    
+    placeNumber(sheet, cmd->coords, res);
+    return 1;
+    
+}
+
 /**
  * @brief Parses a command sent by the client into an arithmetic expression
  * 
