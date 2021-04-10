@@ -79,7 +79,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
     char *valStr     = NULL;
     int arglen       = 0;
     int rangelen     = 0;
-    char *range      = NULL;
+    char *range      = malloc(1);
     char *rangeEnd   = NULL;
     char *rangeStart = NULL;
     char *operator   = NULL;
@@ -237,7 +237,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
                 return 0;
             }
 
-            range = malloc(1);
             range = realloc(range, rangelen + 1);
             strncpy(range, rangeStart, rangelen);
             range[rangelen] = '\0';
@@ -353,7 +352,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
                 *code = BAD_SYNTAX;
                 return 0;
             }
-            free(range);
         }
 
         input++;
@@ -436,6 +434,12 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
         free(arg);
     }
 
+    if (range!=NULL)
+    {
+        /* code */
+    }
+    
+
     placeNumber(sheet, cmd->coords, res);
     return 1;
 }
@@ -461,23 +465,23 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
     if (*cmd->input == '=')
     {
         cmd->input++;
-        char *commandStart = cmd->input;
-        char *commandEnd   = NULL;
+        char *funcStart = cmd->input;
+        char *funcEnd   = NULL;
 
-        // try to determine if a fucntion is being called by the presence of a (
+        // try to determine if a function is being called by the presence of a (
         while (*cmd->input != '\0')
         {
             if (*cmd->input == '(')
             {
-                commandEnd = cmd->input;
+                funcEnd = cmd->input;
                 break;
             }
             cmd->input++;
         }
 
-        printf("%s\n", commandEnd);
+        printf("%s\n", funcEnd);
 
-        if (commandEnd == NULL)
+        if (funcEnd == NULL)
         {
             *code = NO_FUNCTION;
             return;
@@ -486,9 +490,9 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
         {
             // try to find out what type of function
 
-            int len    = commandEnd - commandStart;
+            int len    = funcEnd - funcStart;
             char *name = malloc(len + 1);
-            strncpy(name, commandStart, len);
+            strncpy(name, funcStart, len);
             name[len] = '\0';
 
             toCaps(name);
@@ -522,6 +526,8 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
                     }
                 }
             }
+
+            free(name);
 
             if (!isImplemented)
             {
