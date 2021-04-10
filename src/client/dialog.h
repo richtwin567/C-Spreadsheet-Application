@@ -1,7 +1,6 @@
 #ifndef _DIALOG_H_
 #define _DIALOG_H_
 
-
 /**
  * @file dialog.h
  * @author 
@@ -176,29 +175,37 @@ int promptMenu()
  */
 void printMsgFromCode(struct ServerMessage msg)
 {
-    if (msg.message == NULL)
-    {
-        // cancel printing if there is no message
-        return;
-    }
-
     switch (msg.header.code)
     {
         case ACKNOWLEDGED:
             break;
 
         case OK:
-            printSuccessMsg(msg.message);
+            printSuccessMsg(msg.message == NULL ? "Spreadsheet updated successfully." : msg.message);
             break;
-
+        case BAD_SYNTAX:
+            printErrorMsg(msg.message == NULL ? "There is a syntax error in your input. Please check it and try again." : msg.message, &msg.header.code);
+            break;
         case FORBIDDEN:
+            printErrorMsg(msg.message == NULL ? "You are not authorized to execute this task." : msg.message, &msg.header.code);
+            break;
         case COORD_NOT_FOUND:
+            printErrorMsg(msg.message == NULL ? "One or more of the requested coordinates do not exist on the sheet." : msg.message, &msg.header.code);
+            break;
         case CONFLICT:
+            printWarningMsg(msg.message == NULL ? "The board has been changed while you were working on it" : msg.message);
+            break;
         case DISCONNECTED:
+            printWarningMsg(msg.message == NULL ? "You have been disconnected from the server." : msg.message);
+            break;
         case IMPOSSIBLE:
+            printErrorMsg(msg.message == NULL ? "The server could not completet the calculation. Check your input cells." : msg.message, &msg.header.code);
+            break;
         case NO_FUNCTION:
+            printErrorMsg(msg.message == NULL ? "The server does not support the requested function." : msg.message, &msg.header.code);
+            break;
         case CONN_REJECTED:
-            printErrorMsg(msg.message, &msg.header.code);
+            printErrorMsg(msg.message == NULL ? "The server has rejected the connection due to it being at max connection capacity." : msg.message, &msg.header.code);
             break;
 
         default:
@@ -207,4 +214,3 @@ void printMsgFromCode(struct ServerMessage msg)
     }
 }
 #endif
-

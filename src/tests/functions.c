@@ -24,7 +24,7 @@ int main(int argc, char const *argv[])
     placeNumber(&s, coords, 18878882);
     coords.col = 'A';
     coords.row = 4;
-    placeNumber(&s, coords, 7989887776);
+    placeWord(&s, coords, "Word");
     printSheet(s);
 
     parseCommand(&cmd, &code, &s);
@@ -39,12 +39,15 @@ int main(int argc, char const *argv[])
     printSheet(s);
     printf("%d\n", code);
 
-    cmd.input = "=averAGE(A1:A4)";
+    cmd.input = "=averAGE(A1:A5)";
+
     parseCommand(&cmd, &code, &s);
     printSheet(s);
     printf("%d\n", code);
 
-    cmd.input = "=sum(A1:A4, B5, C3:C5)";
+    cmd.input = "=sum(C3,C5)";
+    cmd.coords.col='E';
+    cmd.coords.row=9;
     parseCommand(&cmd, &code, &s);
     printSheet(s);
     printf("%d\n", code);
