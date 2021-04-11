@@ -53,7 +53,7 @@ double *minMax(double *arr)
     double min = arr[0];
     int i;
 
-    for (i = 0; i < sizeof(arr); i++)
+    for (i = 0; i < sizeof(arr) / sizeof(double); i++)
     {
         if (arr[i] > max)
         {
@@ -64,9 +64,8 @@ double *minMax(double *arr)
             min = arr[i];
         }
     }
-
     double results[2] = {max, min};
-    return results;;
+    return results;
 }
 
 /**
@@ -92,7 +91,7 @@ void toCaps(char *word)
 int isValidArg(char *arg)
 {
     char *col = malloc(2 * (sizeof *col));
-    char *row = malloc(2 * (sizeof row));
+    char *row = malloc(2 * (sizeof *row));
     int read  = sscanf(arg, "%1[a-zA-Z]%1[1-9]", col, row);
     free(col);
     free(row);
@@ -480,7 +479,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
     char *valStr     = NULL;
     int arglen       = 0;
     int rangelen     = 0;
-    char *range      = NULL;
+    char *range      = malloc(1);
     char *rangeEnd   = NULL;
     char *rangeStart = NULL;
     char *operator   = NULL;
@@ -545,7 +544,6 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                 return 0;
             }
 
-            range = malloc(1);
             range = realloc(range, rangelen + 1);
             strncpy(range, rangeStart, rangelen);
             range[rangelen] = '\0';
@@ -577,7 +575,6 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                         continue;
                     }
                     valStr = getPosition(*sheet, coords);
-                    valStr = trim(valStr);
                     read   = sscanf(valStr, "%lf", &val);
 
                     if (read != 1)
@@ -588,7 +585,9 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
 
                     rangearr[index] = val;
                     index++;
+                    arg[1] = arg[1] + 1;
                 }
+                argStart = rangeEnd + 1;
             }
             else if (arg[0] < range[0] && arg[1] == range[1])
             {
@@ -609,7 +608,6 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                         continue;
                     }
                     valStr = getPosition(*sheet, coords);
-                    valStr = trim(valStr);
                     read   = sscanf(valStr, "%lf", &val);
 
                     if (read != 1)
@@ -619,6 +617,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                     }
                     rangearr[index] = val;
                     index++;
+                    arg[0] = arg[0] + 1;
                 }
                 argStart = rangeEnd + 1;
             }
@@ -627,7 +626,6 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                 *code = BAD_SYNTAX;
                 return 0;
             }
-            free(range);
         }
         input++;
     }
@@ -665,7 +663,6 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
             {
 
                 valStr = getPosition(*sheet, coords);
-                valStr = trim(valStr);
                 read   = sscanf(valStr, "%lf", &val);
 
                 if (read != 1)
@@ -687,15 +684,19 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
 
     if (strcmp(funcName, "RANGE") == 0)
     {
-        double min = minMax(rangearr)[0];
-        double max = minMax(rangearr)[1];
-        res        = max - min;
+        double *ptr = minMax(rangearr);
+        res         = ptr[0] - ptr[1];
     }
     *code = OK;
 
     if (arg != NULL)
     {
         free(arg);
+    }
+
+    if (range != NULL)
+    {
+        free(range);
     }
 
     free(rangearr);
@@ -801,11 +802,10 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
                     if (!tryParseArthimetic(cmd, &cmdi, code, sheet))
 
                         memset(&cmdi, 0, sizeof(cmdi));
-
                     return;
 
                 case 3:
-
+                    Range(cmd, &cmdi, code, sheet);
                     break;
 
                 default:

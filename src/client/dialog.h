@@ -24,7 +24,7 @@
 struct SheetCoord promptForCell()
 {
     char *col = malloc(2 * (sizeof *col));
-    char *row = malloc(2 * (sizeof row));
+    char *row = malloc(2 * (sizeof *row));
     int read  = 0;
     struct SheetCoord coords;
 

@@ -6,8 +6,8 @@ int main(int argc, char const *argv[])
     cmd.input = "=averAGE(A4,A2)";
     struct CommandInfo cinfo;
     enum Code code;
-    cmd.coords.col='b';
-    cmd.coords.row=3;
+    cmd.coords.col = 'b';
+    cmd.coords.row = 3;
 
     struct Sheet s;
     s.size = 9;
@@ -33,8 +33,8 @@ int main(int argc, char const *argv[])
 
     cmd.input = "=averAGE(A4:A2)";
 
-    cmd.coords.col='b';
-    cmd.coords.row=7;
+    cmd.coords.col = 'b';
+    cmd.coords.row = 7;
     parseCommand(&cmd, &code, &s);
     printSheet(s);
     printf("%d\n", code);
@@ -45,12 +45,25 @@ int main(int argc, char const *argv[])
     printSheet(s);
     printf("%d\n", code);
 
-    cmd.input = "=sum(C3,C5)";
-    cmd.coords.col='E';
-    cmd.coords.row=9;
+    cmd.input      = "=sum(C3,C5)";
+    cmd.coords.col = 'E';
+    cmd.coords.row = 9;
     parseCommand(&cmd, &code, &s);
     printSheet(s);
     printf("%d\n", code);
 
+    cmd.input      = "=range(a1,a3)";
+    cmd.coords.col = 'd';
+    cmd.coords.row = 4;
+    parseCommand(&cmd, &code, &s);
+    printSheet(s);
+    printf("%d\n", code);
+
+    cmd.input      = "=range(f1,i1)";
+    cmd.coords.col = 'h';
+    cmd.coords.row = 2;
+    parseCommand(&cmd, &code, &s);
+    printSheet(s);
+    printf("%d\n", code);
     return 0;
 }
