@@ -144,7 +144,6 @@ int main(int argc, char **argv)
     }
 
     // TODO(afb) :: Cleanup resources
-	
     printf("[SERVER] Closing...\n");
 
     close(server.socketNumber);
