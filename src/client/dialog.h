@@ -232,13 +232,13 @@ void printMsgFromCode(struct ServerMessage msg)
             printErrorMsg(msg.message == NULL ? "One or more of the requested coordinates do not exist on the sheet." : msg.message, &msg.header.code);
             break;
         case CONFLICT:
-            printWarningMsg(msg.message == NULL ? "The board has been changed while you were working on it" : msg.message);
+            printWarningMsg(msg.message == NULL ? "The sheet has been changed by another user while you were working on it. There may be unexpected results" : msg.message);
             break;
         case DISCONNECTED:
             printWarningMsg(msg.message == NULL ? "You have been disconnected from the server." : msg.message);
             break;
         case IMPOSSIBLE:
-            printErrorMsg(msg.message == NULL ? "The server could not completet the calculation. Check your input cells." : msg.message, &msg.header.code);
+            printErrorMsg(msg.message == NULL ? "The server could not complete the calculation. Check your input cells for logical errors." : msg.message, &msg.header.code);
             break;
         case NO_FUNCTION:
             printErrorMsg(msg.message == NULL ? "The server does not support the requested function." : msg.message, &msg.header.code);
