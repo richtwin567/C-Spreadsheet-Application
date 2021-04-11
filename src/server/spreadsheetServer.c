@@ -46,6 +46,7 @@ int createServerMessage(struct ServerMessage* msg, enum Code code, int* version,
     return result;
 }
 
+
 int main(int argc, char **argv)
 {
     int portNo                   = 10000;
@@ -96,7 +97,8 @@ int main(int argc, char **argv)
             pthread_mutex_lock(&(server.serverDataLock));
             int success = getNextMessage(server.messages, &cliMsg);
             pthread_mutex_unlock(&(server.serverDataLock));
-            if (success)
+
+			if (success)
             {
                 enum Code code;
                 parseCommand(cliMsg.command,
@@ -142,8 +144,12 @@ int main(int argc, char **argv)
     }
 
     // TODO(afb) :: Cleanup resources
+	
     printf("[SERVER] Closing...\n");
 
     close(server.socketNumber);
+
+	printf("[SERVER] Closing...\n");
     return 0;
+
 }

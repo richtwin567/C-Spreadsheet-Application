@@ -271,6 +271,12 @@ void* handleClientMessages(void* args)
 					{
 						// TODO(afb) :: Save spreadsheet
 					}break;
+
+					case DISCONNECTED:
+					{
+						disconnectClient(server, data->socketNumber);
+						quit = 1;
+					}break;
 					
 					default:
 					{
@@ -293,7 +299,7 @@ void* acceptClientsAsync(void* args)
 	Server* server = (Server*)args;
 	
 	ClientMessageThread* threadData = (ClientMessageThread*)calloc(server->maxClientCapacity, sizeof(ClientMessageThread));
-	threadData->server = server;
+
 	
 	// Client message handler threads
 	pthread_t* clientMessageHandler = (pthread_t*)calloc(server->maxClientCapacity,
@@ -348,7 +354,8 @@ void* acceptClientsAsync(void* args)
 		data->socketNumber = newClient;
 		data->lock = &(server->messageQueueLock);
 		data->messageQueue = server->messages;
-			
+		data->server = server;
+
 		if(newClient < 0)
 		{
 			// TODO(afb) :: handle error
