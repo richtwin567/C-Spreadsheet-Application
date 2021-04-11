@@ -52,7 +52,7 @@ int createServerMessage(struct ServerMessage* msg, enum Code code, int* version,
 int main(int argc, char **argv)
 {
     int portNo                   = 10000;
-    const unsigned int clientCap = 10;
+    const unsigned int clientCap = 1000;
 	
     if (argc == 2)
     {

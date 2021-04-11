@@ -138,19 +138,25 @@ void disconnectClient(Server* server, int clientSocket)
 				return;
 			}
 
+			printf("[SERVER] Client (%d) disconnected.\n", clientSocket);
+			/*
 			struct ServerMessage msg = {0};
 			msg.header.code = DISCONNECTED;
 			msg.header.sheetVersion = server->sheetVersion;
 			msg.sheet = server->spreadsheet;
-			char* packet = 0;
+			char* packet = malloc(1);
 			
 			int msgLen = serializeServerMsg(msg, &packet);
 			send(clientSocket, packet, msgLen,0);
+			*/
 			
 			server->connectedClientSockets[i] =
 				server->connectedClientSockets[server->connectedClientsCount-1];
 
 			server->connectedClientsCount--;
+
+			// free(packet);
+			break;
 		}
 	}
 }
@@ -180,7 +186,7 @@ void* handleClientMessages(void* args)
 	ackMsg.header.code         = ACKNOWLEDGED;
 	ackMsg.header.sheetVersion = server->sheetVersion;
 	ackMsg.sheet               = server->spreadsheet;
-	ackMsg.header.clientCount = server->connectedClientsCount;
+	ackMsg.header.clientCount  = server->connectedClientsCount;
 
 	ackMsg.message = (char*)malloc(countDigits(data->socketNumber)+1);
 	sprintf(ackMsg.message, "%d", data->socketNumber);
@@ -236,7 +242,9 @@ void* handleClientMessages(void* args)
 				quit = 1;
 			}
 			else
-			{			  
+			{
+				pthread_mutex_lock(&(server->serverDataLock));
+				
 				completeMsg = realloc(completeMsg, HEADER_SIZE + msgSize);
 				memset(completeMsg, 0, HEADER_SIZE + msgSize);
 				
@@ -275,7 +283,11 @@ void* handleClientMessages(void* args)
 
 					case DISCONNECTED:
 					{
+						//printf("%d : %s\n", );
+						pthread_mutex_lock(&(server->serverDataLock));
 						disconnectClient(server, data->socketNumber);
+						pthread_mutex_unlock(&(server->serverDataLock));
+						
 						quit = 1;
 					}break;
 					
@@ -291,6 +303,7 @@ void* handleClientMessages(void* args)
 
 	} // while loop
 
+	pthread_exit(0);
 	return NULL;
 }
 
@@ -301,7 +314,6 @@ void* acceptClientsAsync(void* args)
 	
 	ClientMessageThread* threadData = (ClientMessageThread*)calloc(server->maxClientCapacity, sizeof(ClientMessageThread));
 
-	
 	// Client message handler threads
 	pthread_t* clientMessageHandler = (pthread_t*)calloc(server->maxClientCapacity,
 														 sizeof(pthread_t));
@@ -323,7 +335,9 @@ void* acceptClientsAsync(void* args)
 			
 			ClientMessageThread* buff3 = realloc(threadData, server->maxClientCapacity*sizeof(buff3));
 
-			if(resultBuffer == NULL)
+			if(resultBuffer == NULL ||
+			   buff2 == NULL ||
+			   buff3 == NULL)
 			{
 				// TODO(afb) :: log error.
 				server->state = SERVER_INVALID;
@@ -332,15 +346,7 @@ void* acceptClientsAsync(void* args)
 			else
 			{
 				server->connectedClientSockets = (int*)resultBuffer;
-			}
-
-			if(buff2!=NULL)
-			{
 				clientMessageHandler = buff2;
-			}
-
-			if(buff3!=NULL)
-			{
 				threadData = buff3;
 			}
 		}
@@ -348,8 +354,14 @@ void* acceptClientsAsync(void* args)
 		int newClient = accept(server->socketNumber,
 							   (struct sockaddr*)&newClientAddress,
 							   &newClientAddressSize);
-		
-		
+
+		memset(&(threadData[server->connectedClientsCount]),
+			   0,
+			   sizeof(&(threadData[server->connectedClientsCount])));
+
+		memset(&(clientMessageHandler[server->connectedClientsCount]),
+			   0,
+			   sizeof(&(clientMessageHandler[server->connectedClientsCount++])));			   
 
 		ClientMessageThread* data = &(threadData[server->connectedClientsCount]);
 		data->socketNumber = newClient;
@@ -365,6 +377,7 @@ void* acceptClientsAsync(void* args)
 		else
 		{
 			server->connectedClientSockets[server->connectedClientsCount] = newClient;
+			
 			pthread_mutex_lock(&server->serverDataLock);
 			pthread_t* clientThread = &(clientMessageHandler[server->connectedClientsCount++]);
 			pthread_mutex_unlock(&server->serverDataLock);
@@ -434,7 +447,7 @@ Server startServer(int portNumber, unsigned int maxClients)
 		result.state = SERVER_INVALID;
 	}
 
-	if(listen(result.socketNumber, maxClients) < 0)
+	if(listen(result.socketNumber, 50) < 0)
 	{
 		// TODO(afb) :: log error
 		result.state = SERVER_INVALID;
