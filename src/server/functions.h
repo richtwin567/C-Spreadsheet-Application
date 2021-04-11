@@ -52,10 +52,10 @@ char *OTHER_FUNC[]      = {"RANGE"};
  * 
  * @param word 
  */
-double * minMax(double *arr)
+double * minMax(double *arrm double *min, double *max)
 {
-    double max = arr[0];
-    double min = arr[0];
+    *max = arr[0];
+    *ouble min = arr[0];
     int i;
     
     for (i = 0; i<sizeof(arr)/sizeof(double); i++)
