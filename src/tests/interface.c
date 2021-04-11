@@ -13,6 +13,7 @@ int main(int argc, char const *argv[])
     test.header.code         = REQUEST;
     test.header.sheetVersion = 1;
     test.header.senderId     = 567;
+    test.header.clientCount  = 21;
     test.command             = malloc(sizeof *test.command);
     test.command->coords.row = 4;
     test.command->coords.col = 'E';
@@ -34,11 +35,12 @@ int main(int argc, char const *argv[])
     test.header.code         = SAVE;
     test.header.sheetVersion = 1;
     test.header.senderId     = 567;
+    test.header.clientCount  = 13;
 
     serializeClientMsg(test, &p);
     printf("%s\n", p);
     parseClientMsg(p, &test2);
-    printf("%d\n%d\n%d\n%c\n%s\n", test2.header.code, test2.header.sheetVersion,test.command==NULL? 0: test2.command->coords.row, test.command==NULL? '!':test2.command->coords.col,test.command==NULL? "NONE": test2.command->input);
+    printf("%d\n%d\n%d\n%c\n%s\n", test2.header.code, test2.header.sheetVersion, test.command == NULL ? 0 : test2.command->coords.row, test.command == NULL ? '!' : test2.command->coords.col, test.command == NULL ? "NONE" : test2.command->input);
 
     struct ServerMessage t3;
     struct ServerMessage t4;
@@ -47,6 +49,7 @@ int main(int argc, char const *argv[])
     t3.header.code         = OK;
     t3.header.sheetVersion = 2;
     t3.header.senderId     = 0;
+    t3.header.clientCount  = 65;
     t3.sheet.size          = 9;
     t3.sheet.rowCount      = 20;
     t3.sheet.lineLength    = 112;
@@ -81,9 +84,9 @@ int main(int argc, char const *argv[])
     serializeServerMsg(t3, &p);
     serializeServerMsg(t3, &p);
     printf("%s\n", p);
-    parseServerMsg(p,&t4);
-    parseServerMsg(p,&t4);
-    parseServerMsg(p,&t4);
+    parseServerMsg(p, &t4);
+    parseServerMsg(p, &t4);
+    parseServerMsg(p, &t4);
     printf("%d\n%d\n%s\n%d\n%d\n%d\n", t4.header.code, t4.header.sheetVersion, t4.message, t4.sheet.size, t4.sheet.rowCount, t4.sheet.lineLength);
     for (int i = 0; i < t4.sheet.rowCount; i++)
     {
