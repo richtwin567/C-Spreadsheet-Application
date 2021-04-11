@@ -47,25 +47,22 @@ struct CommandInfo
 char *ARITHMETIC_FUNC[] = {"AVERAGE", "SUM"};
 char *OTHER_FUNC[]      = {"RANGE"};
 
-double *minMax(double *arr)
+void minMax(double *arr, double *min, double *max, int index)
 {
-    double max = arr[0];
-    double min = arr[0];
+    *max = arr[0];
+    *min = arr[0];
     int i;
-
-    for (i = 0; i < sizeof(arr) / sizeof(double); i++)
+    
+    for (i = 0; i<index+1; i++)
     {
-        if (arr[i] > max)
-        {
-            max = arr[i];
+        if (arr[i] > *max){
+            *max = arr[i];
         }
-        if (arr[i] < min)
-        {
-            min = arr[i];
+        if (arr[i] < *min){
+            *min = arr[i];
         }
     }
-    double results[2] = {max, min};
-    return results;
+    
 }
 
 /**
@@ -684,8 +681,9 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
 
     if (strcmp(funcName, "RANGE") == 0)
     {
-        double *ptr = minMax(rangearr);
-        res         = ptr[0] - ptr[1];
+        double min, max;
+        minMax(rangearr, &min, &max, index);
+        res = max - min;
     }
     *code = OK;
 
