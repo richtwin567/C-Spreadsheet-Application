@@ -9,6 +9,7 @@
 
 #include "../spreadsheet/spreadsheetData.h"
 #include "../interface/message.h"
+#include <unistd.h>
 
 #define MESSAGE_CAPACITY 32
 
@@ -304,6 +305,10 @@ void* acceptClientsAsync(void* args)
 			server->maxClientCapacity *= 2;
 			void* resultBuffer = realloc(server->connectedClientSockets, server->maxClientCapacity * sizeof(int));
 
+			pthread_t* buff2 = realloc(clientMessageHandler,server->maxClientCapacity*sizeof(pthread_t));
+			
+			ClientMessageThread* buff3 = realloc(threadData, server->maxClientCapacity*sizeof(buff3));
+
 			if(resultBuffer == NULL)
 			{
 				// TODO(afb) :: log error.
@@ -313,11 +318,23 @@ void* acceptClientsAsync(void* args)
 			{
 				server->connectedClientSockets = (int*)resultBuffer;
 			}
+
+			if(buff2!=NULL)
+			{
+				clientMessageHandler = buff2;
+			}
+
+			if(buff3!=NULL)
+			{
+				threadData = buff3;
+			}
 		}
 		
 		int newClient = accept(server->socketNumber,
 							   (struct sockaddr*)&newClientAddress,
 							   &newClientAddressSize);
+		
+		
 
 		ClientMessageThread* data = &(threadData[server->connectedClientsCount]);
 		data->socketNumber = newClient;
@@ -331,6 +348,7 @@ void* acceptClientsAsync(void* args)
 		}
 		else
 		{
+			server->connectedClientSockets[server->connectedClientsCount] = newClient;
 			pthread_mutex_lock(&server->serverDataLock);
 			pthread_t* th = &(clientMessageHandler[server->connectedClientsCount++]);
 			pthread_mutex_unlock(&server->serverDataLock);
