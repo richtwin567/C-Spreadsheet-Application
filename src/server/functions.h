@@ -52,13 +52,13 @@ char *OTHER_FUNC[]      = {"RANGE"};
  * 
  * @param word 
  */
-double * minMax(double *arr)
+double * minMax(double *arr, int size)
 {
     double max = arr[0];
     double min = arr[0];
     int i;
     
-    for (i = 0; i<sizeof(arr); i++)
+    for (i = 0; i<sizeof(arr)/sizeof(double); i++)
     {
         if (arr[i] > max){
             max = arr[i];
@@ -681,10 +681,10 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
         return 0;
     }
 
-    if (strcmp(funcName, "AVERAGE") == 0)
+    if (strcmp(funcName, "RANGE") == 0)
     {
         double min = minMax(rangearr)[0];
-        double max = minMax(rangearr)[1];
+        double max = minMax(rangearr, index)[1];
         res = max - min;
     }
     *code = OK;
