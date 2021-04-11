@@ -123,7 +123,7 @@ void exitOnSignal(int sig, siginfo_t *info, void *ucontext)
  */
 void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
 {
-    
+
     *msgPart = realloc(*msgPart, HEADER_SIZE);
 
     // receive header
@@ -329,6 +329,7 @@ int main(int argc, char const *argv[])
                 currentVersion  = serverMsg.header.sheetVersion;
                 printSheet(serverMsg.sheet);
                 printMsgFromCode(serverMsg);
+                printf("There %s %d client%s connected\n", serverMsg.header.clientCount > 1 || serverMsg.header.clientCount == 0 ? "are" : "is", serverMsg.header.clientCount, serverMsg.header.clientCount > 1 || serverMsg.header.clientCount == 0 ? "s" : " \b");
                 // resume child
                 bufferIsDirty   = 0;
                 shouldChildWait = 0;
@@ -349,7 +350,7 @@ int main(int argc, char const *argv[])
                 clientReq.header.code         = REQUEST;
                 clientReq.header.sheetVersion = currentVersion;
                 clientReq.header.senderId     = CID;
-                clientReq.header.clientCount=-1;
+                clientReq.header.clientCount  = -1;
                 // send command
                 packetLength = serializeClientMsg(clientReq, &packet);
                 if (send(sock, packet, packetLength, 0) != packetLength)

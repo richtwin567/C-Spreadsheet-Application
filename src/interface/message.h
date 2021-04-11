@@ -116,7 +116,7 @@ int serializeClientMsg(struct ClientMessage msg, char **packet)
     // zero out structure
     memset(*packet, 0, sizeof *packet);
 
-    sprintf(temp, "%d:%d:%d:%d@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, payloadLength);
+    sprintf(temp, "%d:%d:%d:%d:%d@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, payloadLength, msg.header.clientCount);
 
     fullLength += payloadLength + HEADER_SIZE;
 
@@ -171,7 +171,7 @@ int serializeServerMsg(struct ServerMessage msg, char **packet)
     // zero out structure
     memset(*packet, 0, sizeof *packet);
 
-    sprintf(temp, "%d:%d:%d:%d@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, payloadLength);
+    sprintf(temp, "%d:%d:%d:%d:%d@", msg.header.code, msg.header.sheetVersion, msg.header.senderId, payloadLength, msg.header.clientCount);
 
     fullLength += payloadLength + HEADER_SIZE;
 
@@ -217,7 +217,7 @@ int parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
     int code          = 0;
     int i             = 0;
 
-    read = sscanf(msg, "%d:%*d:%*d:%d@%d:%d:%d:", &code, &payloadLength, &size, &rowCount, &lineLength);
+    read = sscanf(msg, "%d:%*d:%*d:%d:%*d@%d:%d:%d:", &code, &payloadLength, &size, &rowCount, &lineLength);
 
     if (read != 5)
     {
@@ -282,9 +282,9 @@ int parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
     parsedMsg->sheet.lineLength = lineLength;
     parsedMsg->sheet.size       = size;
 
-    read = sscanf(msg, "%*d:%d:%d:", &parsedMsg->header.sheetVersion, &parsedMsg->header.senderId);
+    read = sscanf(msg, "%*d:%d:%d:%*d:%d", &parsedMsg->header.sheetVersion, &parsedMsg->header.senderId, &parsedMsg->header.clientCount);
 
-    if (read != 2)
+    if (read != 3)
     {
         // TODO maybe exit?
         memset(parsedMsg, 0, sizeof parsedMsg);
@@ -340,7 +340,7 @@ int parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
     int payloadLength, read, code, row;
 
     read = sscanf(msg,
-                  "%d:%*d:%*d:%d@%d:", &code, &payloadLength, &row);
+                  "%d:%*d:%*d:%d:%*d@%d:", &code, &payloadLength, &row);
 
     if (read != 3)
     {
@@ -371,13 +371,14 @@ int parseClientMsg(char *msg, struct ClientMessage *parsedMsg)
     parsedMsg->command->coords.row = row;
 
     read = sscanf(msg,
-                  "%*d:%d:%d:%*d@%*d:%c:%s",
+                  "%*d:%d:%d:%*d:%d@%*d:%c:%s",
                   &parsedMsg->header.sheetVersion,
                   &parsedMsg->header.senderId,
+                  &parsedMsg->header.clientCount,
                   &parsedMsg->command->coords.col,
                   parsedMsg->command->input);
 
-    if (read != 4)
+    if (read != 5)
     {
         // TODO maybe exit?
         memset(parsedMsg, 0, sizeof parsedMsg);
