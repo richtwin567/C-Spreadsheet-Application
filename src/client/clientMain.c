@@ -42,10 +42,10 @@ int CID;                  // The client's ID assigned by the server
  * 
  * @param msg An error message to print before exit
  */
-void sendExitSignal(char *msg)
+void sendExitSignal(char *msg, int sig)
 {
     printErrorMsg(msg, NULL);
-    pthread_kill(mainThread, SIGUSR1);
+    pthread_kill(mainThread, sig);
     // wait for signal to be handled
     while (1)
         ;
@@ -123,11 +123,16 @@ void exitOnSignal(int sig, siginfo_t *info, void *ucontext)
  */
 void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
 {
+    int success;
 
     *msgPart = realloc(*msgPart, HEADER_SIZE);
 
     // receive header
-    recv(sock, *msgPart, HEADER_SIZE, MSG_WAITALL);
+    success = recv(sock, *msgPart, HEADER_SIZE, MSG_WAITALL);
+    if (success <= 0)
+    {
+        sendExitSignal("Connection to server lost. Shutting down...", SIGTERM);
+    }
 
     int payloadLength = getPayloadLength(*msgPart);
 
@@ -144,7 +149,11 @@ void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
     memset(*msgPart, 0, payloadLength);
 
     // receive payload
-    recv(sock, *msgPart, payloadLength, MSG_WAITALL);
+    success = recv(sock, *msgPart, payloadLength, MSG_WAITALL);
+    if (success <= 0)
+    {
+        sendExitSignal("Connection to server lost. Shutting down...", SIGTERM);
+    }
 
     strncat(*msg, *msgPart, payloadLength);
 
@@ -155,6 +164,11 @@ void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
 
     // parse message
     parseServerMsg(*msg, data);
+
+    if (data->header.code == DISCONNECTED)
+    {
+        sendExitSignal("Connection to server lost. Shutting down...", SIGTERM);
+    }
 
     if (data->message != NULL)
     {
@@ -190,14 +204,14 @@ void *waitForSheet(struct ServerMessage *data)
         addr.sin_family = AF_INET;
         if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) <= 0)
         {
-            sendExitSignal("Invalid server address");
+            sendExitSignal("Invalid server address", SIGUSR1);
         }
 
         printInfoMsg("> Connecting to server...");
         int success = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
         if (success < 0)
         {
-            sendExitSignal("Failed to connect to server");
+            sendExitSignal("Failed to connect to server", SIGUSR1);
         }
 
         // get acknowledgement
@@ -214,13 +228,13 @@ void *waitForSheet(struct ServerMessage *data)
         }
         else
         {
-            sendExitSignal("Failed to connect to server");
+            sendExitSignal("Failed to connect to server", SIGUSR1);
         }
 
         if (data->header.code != ACKNOWLEDGED || data->message == NULL)
         {
             printMsgFromCode(*data);
-            sendExitSignal("Failed to connect to server");
+            sendExitSignal("Failed to connect to server", SIGUSR1);
         }
 
         printSuccessMsg(">> Connected");
@@ -234,7 +248,7 @@ void *waitForSheet(struct ServerMessage *data)
     }
     else
     {
-        sendExitSignal("Failed to create socket");
+        sendExitSignal("Failed to create socket", SIGUSR1);
     }
 
     pthread_exit(NULL);
@@ -340,11 +354,8 @@ int main(int argc, char const *argv[])
                 {
                     continue;
                 }
-                clientReq.command->input = promptForData(&returnToMenu);
-                if (returnToMenu)
-                {
-                    continue;
-                }
+                clientReq.command->input = promptForData();
+            
 
                 // set header fields
                 clientReq.header.code         = REQUEST;
