@@ -6,7 +6,7 @@
 #include "server.h"
 
 
-int createServerMessage(struct ServerMessage* msg, enum Code code, int* version, struct Sheet* sheet)
+int createServerMessage(struct ServerMessage* msg, enum Code code, int* version, struct Sheet* sheet, int clientCount)
 {
     int result = 0;
 
@@ -20,6 +20,7 @@ int createServerMessage(struct ServerMessage* msg, enum Code code, int* version,
         case OK:
         {
             msg->header.code         = code;
+			msg->header.clientCount = clientCount;
             msg->header.sheetVersion = (*version)++;
             msg->sheet               = *sheet;
 
@@ -32,6 +33,7 @@ int createServerMessage(struct ServerMessage* msg, enum Code code, int* version,
         case ACKNOWLEDGED:
         {
             msg->header.code         = code;
+			msg->header.clientCount = clientCount;
             msg->header.sheetVersion = *version;
             result                   = 1;
         }
@@ -108,7 +110,7 @@ int main(int argc, char **argv)
                 if (createServerMessage(&serverMsg,
                                         code,
                                         &server.sheetVersion,
-                                        &server.spreadsheet))
+                                        &server.spreadsheet, server.connectedClientsCount))
                 {
                     pthread_mutex_lock(&(server.serverDataLock));
 
