@@ -253,18 +253,15 @@ int main(int argc, char** argv)
 		
 		while(!shouldClose(server))
 		{
-
 			pthread_mutex_lock(&(server.serverDataLock));
 			int success = getNextMessage(server.messages, &cliMsg);
 			pthread_mutex_unlock(&(server.serverDataLock));
-
 			if(success)
 			{
 				enum Code code;
 				parseCommand(cliMsg.command,
 							 &code,
 							 &server.spreadsheet);
-
 				switch(code)
 				{
 					case OK:
@@ -282,7 +279,7 @@ int main(int argc, char** argv)
 							for(int i = 0, len = server.connectedClientsCount; i < len; i++)
 							{
 								int soc = server.connectedClientSockets[i];
-								write(soc, packet, packetLen);
+								send(soc, packet, packetLen,0);
 							}
 
 

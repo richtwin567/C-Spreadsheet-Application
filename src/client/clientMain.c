@@ -305,10 +305,14 @@ int main(int argc, char const *argv[])
     saveReq.header.senderId = CID;
 
     printSuccessMsg("Started");
-    while (1)
-    {
         // TODO @richtwin567 test client
         int choice = promptMenu();
+        int returnToMenu=0;
+    while (1)
+    {
+        if(returnToMenu){
+            choice = promptMenu();
+        }
         switch (choice)
         {
             case 0:
@@ -327,8 +331,14 @@ int main(int argc, char const *argv[])
                 shouldChildWait = 0;
 
                 // get command from user
-                clientReq.command->coords = promptForCell();
-                clientReq.command->input  = promptForData();
+                clientReq.command->coords = promptForCell(&returnToMenu);
+                if(returnToMenu){
+                    continue;
+                }
+                clientReq.command->input  = promptForData(&returnToMenu);
+                if(returnToMenu){
+                    continue;
+                }
 
                 // set header fields
                 clientReq.header.code         = REQUEST;
@@ -337,13 +347,17 @@ int main(int argc, char const *argv[])
 
                 // send command
                 packetLength = serializeClientMsg(clientReq, &packet);
-                send(sock, packet, packetLength, 0);
+                if (send(sock, packet, packetLength, 0)!=packetLength){
+                    perror("Send failed");
+                }
                 break;
             case 2:
                 saveReq.header.sheetVersion = serverMsg.header.sheetVersion;
 
                 packetLength = serializeClientMsg(saveReq, &packet);
-                send(sock, packet, packetLength, 0);
+                if (send(sock, packet, packetLength, 0)!=packetLength){
+                    perror("Send failed");
+                }
                 shouldMainWait = 1;
                 // wait until the message has been received
                 while (shouldMainWait)

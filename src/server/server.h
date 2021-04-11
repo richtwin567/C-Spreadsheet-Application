@@ -111,7 +111,7 @@ void closeServer(Server* server)
 	for(int i = 0, len = server->connectedClientsCount; i < len; i++)
 	{
 		int cli = server->connectedClientSockets[i];
-		write(cli, packet, msgLen);
+		send(cli, packet, msgLen,0);
 		server->connectedClientsCount--;
 	}
 
@@ -144,7 +144,7 @@ void disconnectClient(Server* server, int clientSocket)
 			char* packet = 0;
 			
 			int msgLen = serializeServerMsg(msg, &packet);
-			write(clientSocket, packet, msgLen);
+			send(clientSocket, packet, msgLen,0);
 			
 			server->connectedClientSockets[i] =
 				server->connectedClientSockets[server->connectedClientsCount-1];
@@ -158,12 +158,11 @@ void disconnectClient(Server* server, int clientSocket)
 void sendMessage(int clientSocket, struct ServerMessage msg, char** packet)
 {
 	int msgLen = serializeServerMsg(msg, packet);
-	write(clientSocket, *packet, msgLen);
+	send(clientSocket, *packet, msgLen,0);
 }
 
 void* handleClientMessages(void* args)
 {
-	
 	// TODO(afb) :: Complete funcion
 	// Closing client handler
 	
@@ -185,13 +184,12 @@ void* handleClientMessages(void* args)
 	
 	char* packet = 0;
 	int msgLen = serializeServerMsg(ackMsg, &packet);
-	write(data->socketNumber, packet, msgLen);
+	send(data->socketNumber, packet, msgLen,0);
 	free(packet);
-	
-	
+
 	struct ClientMessage message = {0};
-	char* msg = NULL;
-	char* completeMsg = NULL;
+	char* msg = malloc(1);
+	char* completeMsg = malloc(1);
 	
 	// TODO(afb) :: Consider if its better to use read or recv.
 	while(!quit)
@@ -200,7 +198,6 @@ void* handleClientMessages(void* args)
 		int error = read(data->socketNumber,
 						 data->messageHeader,
 						 HEADER_SIZE);
-
 		if(error <= 0)
 		{
 			// NOTE(afb) :: Client broken connection
@@ -239,11 +236,10 @@ void* handleClientMessages(void* args)
 				completeMsg = realloc(completeMsg, HEADER_SIZE + msgSize);
 				memset(completeMsg, 0, HEADER_SIZE + msgSize);
 				
-				completeMsg = strncat(completeMsg,
-									  data->messageHeader,
-									  HEADER_SIZE);
+				completeMsg = strcat(completeMsg,
+									  data->messageHeader);
 				
-				completeMsg = strcat(completeMsg+HEADER_SIZE, msg);
+				completeMsg = strcat(completeMsg, msg);
 				
 				parseClientMsg(completeMsg, &message);
 
@@ -251,11 +247,14 @@ void* handleClientMessages(void* args)
 				{
 					case REQUEST:
 					{
-						struct ClientMessage storedMsg = {0};
+						struct ClientMessage storedMsg;
 						storedMsg.header = message.header;
 						storedMsg.command = (struct Command*)malloc(sizeof(message.command));
-						memcpy(&(storedMsg.command), message.command, sizeof(message.command));
-						
+						memcpy(storedMsg.command, message.command, sizeof(message.command));
+
+						storedMsg.command->input = malloc(strlen(message.command->input)+1);
+
+						strcpy(storedMsg.command->input, message.command->input);					
 						pthread_mutex_lock(data->lock);
 						addCommand(data->messageQueue, storedMsg);
 						pthread_mutex_unlock(data->lock);
