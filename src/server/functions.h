@@ -52,6 +52,27 @@ char *OTHER_FUNC[]      = {"RANGE"};
  * 
  * @param word 
  */
+double * minMax(arr)
+{
+    max = arr[0];
+    min = arr[0];
+    int i;
+    
+    for (i = 0; i<sizeof(arr); i++)
+    {
+        if (arr[i] > max){
+            max = arr[i];
+        }
+        if (arr[i] < min){
+            min = arr[i];
+        }
+        
+    }
+    return [max, min];
+    
+}
+    
+
 void toCaps(char *word)
 {
     while (*word != '\0')
@@ -659,8 +680,8 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
 
     if (strcmp(funcName, "AVERAGE") == 0)
     {
-        double min = MIN(rangearr);
-        double max = MAX(rangearr);
+        double min = minMax(rangearr)[1];
+        double max = minMax(rangearr)[0];
         res = max - min;
     }
     *code = OK;
