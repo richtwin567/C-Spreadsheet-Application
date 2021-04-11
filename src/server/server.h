@@ -180,6 +180,7 @@ void* handleClientMessages(void* args)
 	ackMsg.header.code         = ACKNOWLEDGED;
 	ackMsg.header.sheetVersion = server->sheetVersion;
 	ackMsg.sheet               = server->spreadsheet;
+	ackMsg.header.clientCount = server->connectedClientsCount;
 
 	ackMsg.message = (char*)malloc(countDigits(data->socketNumber)+1);
 	sprintf(ackMsg.message, "%d", data->socketNumber);
