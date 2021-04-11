@@ -92,6 +92,7 @@ int main(int argc, char** argv)
 
 			if(success)
 			{
+				printf("[SERVER] Messages to process\n");
 				enum Code code;
 				parseCommand(cliMsg.command,
 							 &code,
@@ -115,7 +116,6 @@ int main(int argc, char** argv)
 								int soc = server.connectedClientSockets[i];
 								send(soc, packet, packetLen,0);
 							}
-
 
 							pthread_mutex_unlock(&(server.serverDataLock));
 						}
