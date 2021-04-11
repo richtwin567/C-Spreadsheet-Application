@@ -280,6 +280,7 @@ void* handleClientMessages(void* args)
 							{
 								fprintf(fptr, "%s\n", server->spreadsheet.grid[line]);
 							}
+							fclose(fptr);
 						}
 					}break;
 
