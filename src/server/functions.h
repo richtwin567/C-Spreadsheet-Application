@@ -47,26 +47,28 @@ struct CommandInfo
 char *ARITHMETIC_FUNC[] = {"AVERAGE", "SUM"};
 char *OTHER_FUNC[]      = {"RANGE"};
 
-double * minMax(arr)
+double *minMax(double *arr)
 {
-    max = arr[0];
-    min = arr[0];
+    double max = arr[0];
+    double min = arr[0];
     int i;
-    
-    for (i = 0; i<sizeof(arr); i++)
+
+    for (i = 0; i < sizeof(arr); i++)
     {
-        if (arr[i] > max){
+        if (arr[i] > max)
+        {
             max = arr[i];
         }
-        if (arr[i] < min){
+        if (arr[i] < min)
+        {
             min = arr[i];
         }
-        
     }
-    return [max, min];
-    
+
+    double results[2] = {max, min};
+    return results;;
 }
-    
+
 /**
  * @brief A word to Capitalize
  * 
@@ -121,7 +123,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
     char *next       = NULL;
     char *input      = cmd->input;
     char *funcName   = cmdi->funcName;
-    cmdi->args.expr  = calloc(1,1);
+    cmdi->args.expr  = calloc(1, 1);
     struct SheetCoord coords;
     double val;
     double res = 0;
@@ -134,8 +136,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
         *code = NO_FUNCTION;
         return 0;
     }
-
-    
 
     while (*input != '\0')
     {
@@ -197,7 +197,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
             argStart = ++argEnd;
         } 
         else*/
-        if (*input == ',' || *input==':')
+        if (*input == ',' || *input == ':')
         {
             argEnd = input;
             arglen = argEnd - argStart;
@@ -460,20 +460,19 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
         free(arg);
     }
 
-    if (range!=NULL)
+    if (range != NULL)
     {
         free(range);
     }
-    
 
     placeNumber(sheet, cmd->coords, res);
     return 1;
 }
 
-
 int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
 {
-    double rangearr[] = {};
+    double *rangearr;
+    rangearr         = malloc(sizeof(double) * 100);
     int index        = 0;
     char *argStart   = NULL;
     char *argEnd     = NULL;
@@ -489,7 +488,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
     char *next       = NULL;
     char *input      = cmd->input;
     char *funcName   = cmdi->funcName;
-    cmdi->args.expr  = calloc(1,1);
+    cmdi->args.expr  = calloc(1, 1);
     struct SheetCoord coords;
     double val;
     double res;
@@ -499,7 +498,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
 
     while (*input != '\0')
     {
-        if (*input == ',' || *input==':')
+        if (*input == ',' || *input == ':')
         {
             argEnd = input;
             arglen = argEnd - argStart;
@@ -524,7 +523,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
             }
             coords.col = arg[0];
             coords.row = arg[1] - '0';
-            
+
             rangeStart = ++input;
 
             while (*input != '\0' && *input != ')' && *input != ',')
@@ -558,7 +557,6 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                 return 0;
             }
 
-
             if (arg[0] == range[0] && arg[1] < range[1])
             {
 
@@ -587,16 +585,16 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                         arg[1] = arg[1] + 1;
                         continue;
                     }
-                    
+
                     rangearr[index] = val;
                     index++;
                 }
             }
             else if (arg[0] < range[0] && arg[1] == range[1])
+            {
+                while (arg[0] <= range[0])
                 {
-                    while (arg[0] <= range[0])
-                    {
-                        coords.col = arg[0];
+                    coords.col = arg[0];
                     coords.row = arg[1] - '0';
 
                     if (!isOnSheet(*sheet, coords))
@@ -625,10 +623,10 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
                 argStart = rangeEnd + 1;
             }
             else
-                {
-                    *code = BAD_SYNTAX;
-                    return 0;
-                }
+            {
+                *code = BAD_SYNTAX;
+                return 0;
+            }
             free(range);
         }
         input++;
@@ -681,7 +679,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
             }
         }
     }
-     else
+    else
     {
         *code = BAD_SYNTAX;
         return 0;
@@ -689,9 +687,9 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
 
     if (strcmp(funcName, "RANGE") == 0)
     {
-        double min = minMax(rangearr)[1];
-        double max = minMax(rangearr)[0];
-        res = max - min;
+        double min = minMax(rangearr)[0];
+        double max = minMax(rangearr)[1];
+        res        = max - min;
     }
     *code = OK;
 
@@ -700,10 +698,9 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
         free(arg);
     }
 
-    
+    free(rangearr);
     placeNumber(sheet, cmd->coords, res);
     return 1;
-    
 }
 
 /**
@@ -802,9 +799,9 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
             {
                 case 1:
                     if (!tryParseArthimetic(cmd, &cmdi, code, sheet))
-                    
+
                         memset(&cmdi, 0, sizeof(cmdi));
-                    
+
                     return;
 
                 case 3:
