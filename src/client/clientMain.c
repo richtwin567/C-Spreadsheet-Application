@@ -326,6 +326,7 @@ int main(int argc, char const *argv[])
     // TODO @richtwin567 test client
     int choice       = promptMenu();
     int returnToMenu = 0;
+    int refresh = 0;
     while (1)
     {
         if (returnToMenu)
@@ -351,8 +352,8 @@ int main(int argc, char const *argv[])
                 shouldChildWait = 0;
 
                 // get command from user
-                clientReq.command->coords = promptForCell(&returnToMenu);
-                if (returnToMenu)
+                clientReq.command->coords = promptForCell(&returnToMenu,&refresh);
+                if (returnToMenu || refresh)
                 {
                     continue;
                 }
@@ -390,6 +391,7 @@ int main(int argc, char const *argv[])
                 // pause child so that the message is not overwritten
                 shouldChildWait = 1;
                 printMsgFromCode(serverMsg);
+                serverMsg.header.code=0;
                 // resume child
                 bufferIsDirty   = 0;
                 shouldChildWait = 0;
