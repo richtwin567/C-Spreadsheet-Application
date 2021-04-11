@@ -54,6 +54,7 @@ typedef struct _Server
 
 #define HEADER_SIZE 20
 #define MAX_MESSAGE_LENGTH 255
+
 typedef struct _ClientMessageThread
 {
 	int socketNumber;
@@ -64,6 +65,13 @@ typedef struct _ClientMessageThread
 	char messageHeader[HEADER_SIZE];
 }ClientMessageThread;
 
+
+void addClientMessage(MessageQueue* messages, struct ClientMessage msg)
+{
+	messages->messages[messages->count++] = msg;
+	if(messages->count >= MESSAGE_CAPACITY)
+		messages->count = 0;
+}
 
 int getNextMessage(MessageQueue* messages, struct ClientMessage* msg)
 {
@@ -84,14 +92,6 @@ int getNextMessage(MessageQueue* messages, struct ClientMessage* msg)
 // NOTE(afb) :: Will eat the first message if the buffer is full
 // shouldn't cause any problems though since the messages shouldn't
 // take long to process and pile up
-void addCommand(MessageQueue* messages, struct ClientMessage msg)
-{
-	messages->messages[messages->count++] = msg;
-	if(messages->count >= MESSAGE_CAPACITY)
-		messages->count = 0;
-}
-
-
 
 void closeServer(Server* server)
 {
@@ -172,21 +172,23 @@ void* handleClientMessages(void* args)
 	int quit = 0;
 
 	printf("[SERVER] New client. (%d)\n", data->socketNumber);
-	
+
 	// NOTE(afb) :: sending acknowledgement
 	struct ServerMessage ackMsg = {0};
-	ackMsg.header.code = ACKNOWLEDGED;
+
+	ackMsg.header.code         = ACKNOWLEDGED;
 	ackMsg.header.sheetVersion = server->sheetVersion;
-	ackMsg.sheet = server->spreadsheet;
-	
+	ackMsg.sheet               = server->spreadsheet;
+
 	ackMsg.message = (char*)malloc(countDigits(data->socketNumber)+1);
 	sprintf(ackMsg.message, "%d", server->socketNumber);
-	
-	char* packet = 0;
+
+	char* packet = malloc(1);
 	int msgLen = serializeServerMsg(ackMsg, &packet);
 	send(data->socketNumber, packet, msgLen,0);
 	free(packet);
 
+	
 	struct ClientMessage message = {0};
 	char* msg = malloc(1);
 	char* completeMsg = malloc(1);
@@ -249,15 +251,19 @@ void* handleClientMessages(void* args)
 					{
 						struct ClientMessage storedMsg;
 						storedMsg.header = message.header;
-						storedMsg.command = (struct Command*)malloc(sizeof(message.command));
-						memcpy(storedMsg.command, message.command, sizeof(message.command));
+						
+						storedMsg.command = (struct Command*)malloc(sizeof(struct Command));
+						memset(storedMsg.command, 0, sizeof(struct Command));
+						
+						storedMsg.command->coords = message.command->coords;
+						storedMsg.command->input = (char*)malloc(strlen(message.command->input)+1);
 
-						storedMsg.command->input = malloc(strlen(message.command->input)+1);
+						strcpy(storedMsg.command->input,
+							   message.command->input);
 
-						strcpy(storedMsg.command->input, message.command->input);					
-						pthread_mutex_lock(data->lock);
-						addCommand(data->messageQueue, storedMsg);
-						pthread_mutex_unlock(data->lock);
+						pthread_mutex_lock(&(server->serverDataLock));
+						addClientMessage(data->messageQueue, storedMsg);
+						pthread_mutex_unlock(&(server->serverDataLock));
 					}break;
 
 					case SAVE:
@@ -289,15 +295,16 @@ void* acceptClientsAsync(void* args)
 	threadData->server = server;
 	
 	// Client message handler threads
-	pthread_t* clientMessageHandler = (pthread_t*)calloc(server->maxClientCapacity, sizeof(pthread_t));
+	pthread_t* clientMessageHandler = (pthread_t*)calloc(server->maxClientCapacity,
+														 sizeof(pthread_t));
 
 	struct sockaddr_in newClientAddress = {0};
 	socklen_t newClientAddressSize = sizeof(newClientAddress);
 
 	// Run until server is no longer active
+	printf("[SERVER] Started accepting clients...\n");
 	while(server->state == SERVER_ACTIVE)
 	{
-		printf("[SERVER] Started accepting clients...\n");
 
 		if(server->connectedClientsCount >= server->maxClientCapacity)
 		{
@@ -307,6 +314,7 @@ void* acceptClientsAsync(void* args)
 			if(resultBuffer == NULL)
 			{
 				// TODO(afb) :: log error.
+				server->state = SERVER_INVALID;
 				break;
 			}
 			else
@@ -321,7 +329,7 @@ void* acceptClientsAsync(void* args)
 
 		ClientMessageThread* data = &(threadData[server->connectedClientsCount]);
 		data->socketNumber = newClient;
-		data->lock = &server->messageQueueLock;
+		data->lock = &(server->messageQueueLock);
 		data->messageQueue = server->messages;
 			
 		if(newClient < 0)
@@ -332,25 +340,28 @@ void* acceptClientsAsync(void* args)
 		else
 		{
 			pthread_mutex_lock(&server->serverDataLock);
-			pthread_t* th = &(clientMessageHandler[server->connectedClientsCount++]);
+			pthread_t* clientThread = &(clientMessageHandler[server->connectedClientsCount++]);
 			pthread_mutex_unlock(&server->serverDataLock);
 			
 			// NOTE(afb) :: Create a new thread to process client
 			// messages.
 			int threadError = 0;
-			if(!(threadError = pthread_create(th, NULL,
+			if(!(threadError = pthread_create(clientThread, NULL,
 											  handleClientMessages,
 											  data)))
 			{
 				// TODO(afb) :: log sucess
-				pthread_detach(*th);
+				printf("[SERVER] New client thread created.\n");
+				pthread_detach(*clientThread);
 			}
 			else
 			{
 				// TODO(afb) :: log error
+				printf("[SERVER] Failed to create new client thread.\n");
 			}
 		}
-	
+
+		memset(&newClientAddress, 0, sizeof(newClientAddress));
 	}
 	
 	pthread_exit(NULL);
