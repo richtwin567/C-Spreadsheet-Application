@@ -52,10 +52,10 @@ char *OTHER_FUNC[]      = {"RANGE"};
  * 
  * @param word 
  */
-double * minMax(arr)
+double * minMax(double *arr)
 {
-    max = arr[0];
-    min = arr[0];
+    double max = arr[0];
+    double min = arr[0];
     int i;
     
     for (i = 0; i<sizeof(arr); i++)
@@ -68,7 +68,9 @@ double * minMax(arr)
         }
         
     }
-    return [max, min];
+    
+    double results[2] = {max, min};
+    return results;
     
 }
     
@@ -464,7 +466,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
 
 int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
 {
-    double rangearr[] = {};
+    double rangearr[100];
     int index        = 0;
     char *argStart   = NULL;
     char *argEnd     = NULL;
@@ -680,8 +682,8 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
 
     if (strcmp(funcName, "AVERAGE") == 0)
     {
-        double min = minMax(rangearr)[1];
-        double max = minMax(rangearr)[0];
+        double min = minMax(rangearr)[0];
+        double max = minMax(rangearr)[1];
         res = max - min;
     }
     *code = OK;
