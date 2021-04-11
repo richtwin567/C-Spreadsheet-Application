@@ -466,7 +466,8 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
 
 int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
 {
-    double rangearr[100];
+    double *rangearr;
+    rangearr = malloc(sizeof(double)*100);
     int index        = 0;
     char *argStart   = NULL;
     char *argEnd     = NULL;
@@ -693,7 +694,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
         free(arg);
     }
 
-    
+    free(rangearr);
     placeNumber(sheet, cmd->coords, res);
     return 1;
     
