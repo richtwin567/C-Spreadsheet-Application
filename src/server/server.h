@@ -22,14 +22,13 @@ enum ServerState
 
 typedef struct _MessageQueue
 {
-	struct Command* messages[MESSAGE_CAPACITY];
+	struct ClientMessage messages[MESSAGE_CAPACITY];
 
 	int first;
 	int count;
 }MessageQueue;
 
 
-// TODO(afb) :: Resizeable client capacity
 typedef struct _Server
 {
 	int          socketNumber;
@@ -47,10 +46,13 @@ typedef struct _Server
 	// to decide if the sever should close or not. Consider
 	// the normal way the server gets notified to close. What
 	// should happen if everyone leaves etc.
+	struct Sheet spreadsheet;
+	int sheetVersion;
+	
 	enum ServerState state;
 }Server;
 
-
+#define HEADER_SIZE 20
 #define MAX_MESSAGE_LENGTH 255
 typedef struct _ClientMessageThread
 {
@@ -58,17 +60,19 @@ typedef struct _ClientMessageThread
 	pthread_mutex_t* lock;
 	MessageQueue* messageQueue;
 
-	char procBuffer[MAX_MESSAGE_LENGTH];
+	Server* server;
+	char messageHeader[HEADER_SIZE];
 }ClientMessageThread;
 
 
-struct Command* getNextMessage(MessageQueue* messages)
+int getNextMessage(MessageQueue* messages, struct ClientMessage* msg)
 {
-	struct Command* result = NULL;
+	int result = 0;
 
 	if(messages->first != messages->count)
 	{
-		result = messages->messages[messages->first++];
+		*msg = messages->messages[messages->first++];
+		result = 1;
 		if(messages->first >= MESSAGE_CAPACITY)
 			messages->first = 0;
 	}
@@ -80,47 +84,178 @@ struct Command* getNextMessage(MessageQueue* messages)
 // NOTE(afb) :: Will eat the first message if the buffer is full
 // shouldn't cause any problems though since the messages shouldn't
 // take long to process and pile up
-void addMessage(MessageQueue* messages, struct Command* command)
+void addCommand(MessageQueue* messages, struct ClientMessage msg)
 {
-	messages->messages[messages->count++] = command;
+	messages->messages[messages->count++] = msg;
 	if(messages->count >= MESSAGE_CAPACITY)
 		messages->count = 0;
 }
 
 
+
+void closeServer(Server* server)
+{
+	// TODO(afb) :: Dispatch message to clients for them to
+	// close before closing
+	struct ServerMessage msg = {0};
+	msg.header.code = DISCONNECTED;
+	//msg.header.sheetVersion = server->sheetVersion;
+	msg.header.sheetVersion = server->socketNumber;
+	//msg.sheet = server->spreadsheet;
+
+	char* packet = 0;
+	int msgLen = serializeServerMsg(msg, &packet);
+
+	pthread_mutex_lock(&(server->serverDataLock));
+	
+	for(int i = 0, len = server->connectedClientsCount; i < len; i++)
+	{
+		int cli = server->connectedClientSockets[i];
+		write(cli, packet, msgLen);
+		server->connectedClientsCount--;
+	}
+
+	pthread_mutex_unlock(&(server->serverDataLock));
+	shutdown(server->socketNumber, SHUT_RDWR);
+
+	server->state = SERVER_INVALID;
+	// TODO(afb) :: save spreadsheet
+	// TODO(afb) :: cleanup resources
+	//close(server.socketNumber);
+}
+
+
+void disconnectClient(Server* server, int clientSocket)
+{
+	for(int i = 0, len = server->connectedClientsCount; i < len; i++)
+	{
+		if(clientSocket == server->connectedClientSockets[i])
+		{
+			if(i == 0)
+			{
+				closeServer(server);
+				return;
+			}
+
+			// TODO(afb) :: send client disconnect message
+			
+			server->connectedClientSockets[i] =
+				server->connectedClientSockets[server->connectedClientsCount];
+
+			server->connectedClientsCount--;
+		}
+	}
+}
+
+// TODO(afb) :: Remove. May not be necessary
+void sendMessage(int clientSocket, struct ServerMessage msg, char** packet)
+{
+	int msgLen = serializeServerMsg(msg, packet);
+	write(clientSocket, *packet, msgLen);
+}
+
 void* handleClientMessages(void* args)
 {
 	
 	// TODO(afb) :: Complete funcion
-	ClientMessageThread* data = (ClientMessageThread*)args;
-
-	int quit = 0;
+	// Closing client handler
 	
-	// TODO(afb) :: Consider if its better to use read or rcv.
+	ClientMessageThread* data = (ClientMessageThread*)args;
+	Server* server = data->server;
+	
+	int quit = 0;
+
+	// TODO(afb) :: send acknowledgement
+	struct ClientMessage message = {0};
+	char* msg = NULL;
+	char* completeMsg = NULL;
+	
+	// TODO(afb) :: Consider if its better to use read or recv.
 	while(!quit)
 	{
+		// recieve header
 		int error = read(data->socketNumber,
-						 data->procBuffer,
-						 MAX_MESSAGE_LENGTH);
+						 data->messageHeader,
+						 HEADER_SIZE);
 
-		if(error < 0)
+		if(error <= 0)
 		{
-			// TODO(afb) :: log error
+			// NOTE(afb) :: Client broken connection
+			pthread_mutex_lock(&(server->serverDataLock));
+
+			disconnectClient(server, data->socketNumber);
+			
+			pthread_mutex_unlock(&(server->serverDataLock));
+
+			quit = 1;
 		}
 		else
 		{
+			int msgSize = getPayloadLength(data->messageHeader);
+			msg  = realloc(msg, msgSize);
+			memset(msg, 0, msgSize);
+
+			// recieve payload
+			error = read(data->socketNumber,
+						 msg,
+						 msgSize);
+
+			if(error <= 0)
+			{
+				// TODO(afb) :: log error
+				pthread_mutex_lock(&(server->serverDataLock));
+
+				disconnectClient(server, data->socketNumber);
 			
-			
-			struct ClientMessage result = {0};
-			parseClientMsg(data->procBuffer, &result);
-			// TODO(afb) :: Process messagge to see if valid
-			
-			pthread_mutex_lock(data->lock);
-			addMessage(data->messageQueue, result.command);
-			pthread_mutex_unlock(data->lock);
-		}
-	}
-	
+				pthread_mutex_unlock(&(server->serverDataLock));
+
+				quit = 1;
+			}
+			else
+			{			  
+				completeMsg = realloc(completeMsg, HEADER_SIZE + msgSize);
+				memset(completeMsg, 0, HEADER_SIZE + msgSize);
+				
+				completeMsg = strncat(completeMsg,
+									  data->messageHeader,
+									  HEADER_SIZE);
+				
+				completeMsg = strcat(completeMsg+HEADER_SIZE, msg);
+				
+				parseClientMsg(completeMsg, &message);
+
+				switch(message.header.code)
+				{
+					case REQUEST:
+					{
+						struct ClientMessage storedMsg = {0};
+						storedMsg.header = message.header;
+						storedMsg.command = (struct Command*)malloc(sizeof(message.command));
+						memcpy(&(storedMsg.command), message.command, sizeof(message.command));
+						
+						pthread_mutex_lock(data->lock);
+						addCommand(data->messageQueue, storedMsg);
+						pthread_mutex_unlock(data->lock);
+					}break;
+
+					case SAVE:
+					{
+						// TODO(afb) :: Save spreadsheet
+					}break;
+					
+					default:
+					{
+						// NOTE(afb) :: Unrecognised message.
+					}break;
+				}
+				
+			} // payload error checking
+
+		} // header error checking
+
+	} // while loop
+
+	return NULL;
 }
 
 
@@ -129,7 +264,8 @@ void* acceptClientsAsync(void* args)
 	Server* server = (Server*)args;
 	
 	ClientMessageThread* threadData = (ClientMessageThread*)calloc(server->maxClientCapacity, sizeof(ClientMessageThread));
-
+	threadData->server = server;
+	
 	// Client message handler threads
 	pthread_t* clientMessageHandler = (pthread_t*)calloc(server->maxClientCapacity, sizeof(pthread_t));
 
@@ -140,6 +276,22 @@ void* acceptClientsAsync(void* args)
 	while(server->state == SERVER_ACTIVE)
 	{
 		printf("[SERVER] Started accepting clients...\n");
+
+		if(server->connectedClientsCount >= server->maxClientCapacity)
+		{
+			server->maxClientCapacity *= 2;
+			void* resultBuffer = realloc(server->connectedClientSockets, server->maxClientCapacity * sizeof(int));
+
+			if(resultBuffer == NULL)
+			{
+				// TODO(afb) :: log error.
+				break;
+			}
+			else
+			{
+				server->connectedClientSockets = (int*)resultBuffer;
+			}
+		}
 		
 		int newClient = accept(server->socketNumber,
 							   (struct sockaddr*)&newClientAddress,
@@ -188,15 +340,6 @@ int shouldClose(Server server)
 {
 	// TODO(afb) :: Test to see if first client has left
 	return server.state == SERVER_INVALID;
-}
-
-
-void closeServer(Server server)
-{
-	// TODO(afb) :: Dispatch message to clients for them to
-	// close before closing
-	shutdown(server.socketNumber, SHUT_RDWR);
-	//close(server.socketNumber);
 }
 
 
