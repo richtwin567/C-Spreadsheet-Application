@@ -271,6 +271,12 @@ void* handleClientMessages(void* args)
 					{
 						// TODO(afb) :: Save spreadsheet
 					}break;
+
+					case DISCONNECTED:
+					{
+						disconnectClient(server, data->socketNumber);
+						quit = 1;
+					}break;
 					
 					default:
 					{
