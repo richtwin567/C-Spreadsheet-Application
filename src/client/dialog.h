@@ -21,20 +21,39 @@
  * 
  * @return struct SheetCoord the coordinates entered
  */
-struct SheetCoord promptForCell()
+struct SheetCoord promptForCell(int *shouldReturnToMenu)
 {
-    char *col = malloc(2 * (sizeof *col));
-    char *row = malloc(2 * (sizeof *row));
-    int read  = 0;
+    char *col   = malloc(2);
+    char *row   = malloc(2);
+    char *input = malloc(5);
+    int read    = 0;
     struct SheetCoord coords;
 
     do
     {
-        printf("\nPlease enter the coordinates in cr format where c is the column letter and r is the row number (eg. E8): ");
+        printf("\nPlease enter the coordinates in cr format where c is the column letter and r is the row number (eg. E8) or enter 'menu' to return the menu: ");
 
-        read = scanf("%1[a-zA-Z]%1[1-9]", col, row);
-
+        scanf("%s", input);
         flushStdin();
+
+        toCaps(input);
+
+        if (strcmp(input, "MENU") == 0)
+        {
+            coords.col          = 'A';
+            coords.row          = -1;
+            *shouldReturnToMenu = 1;
+            free(col);
+            free(row);
+            free(input);
+            return coords;
+        }
+        else
+        {
+            *shouldReturnToMenu = 0;
+        }
+
+        read = sscanf(input, "%1[a-zA-Z]%1[1-9]", col, row);
 
         if (read != 2)
         {
@@ -52,6 +71,7 @@ struct SheetCoord promptForCell()
 
     free(col);
     free(row);
+    free(input);
 
     return coords;
 }
@@ -61,14 +81,15 @@ struct SheetCoord promptForCell()
  * 
  * @return char* the data entered
  */
-char *promptForData()
+char *promptForData(int *shouldReturnToMenu)
 {
     //TODO pointer check
     char *data = calloc(1, sizeof *data);
+    char *input;
     char c;
     int i = 0;
 
-    printf("\nPlease enter the content for the cell: ");
+    printf("\nPlease enter the content for the cell or 'menu' to return to the menu: ");
     while ((c = getchar()) != '\n')
     {
         data[i] = c;
@@ -76,6 +97,23 @@ char *promptForData()
         data = realloc(data, (i + 1) * sizeof *data);
     }
     data[i] = '\0';
+
+    input = malloc(i + 1);
+    strcpy(input, data);
+
+    toCaps(input);
+
+    if (strcmp(input, "MENU") == 0)
+    {
+        *shouldReturnToMenu = 1;
+        free(input);
+        free(data);
+        return NULL;
+    }
+    else
+    {
+        *shouldReturnToMenu = 0;
+    }
 
     return data;
 }

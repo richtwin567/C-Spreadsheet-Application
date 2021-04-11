@@ -95,4 +95,18 @@ char* trim (char* string)
     return ltrim(rtrim(string));
 }
 
+
+/**
+ * @brief A word to Capitalize
+ * 
+ * @param word 
+ */
+void toCaps(char *word)
+{
+    while (*word != '\0')
+    {
+        *word = toupper(*word);
+        word++;
+    }
+}
 #endif

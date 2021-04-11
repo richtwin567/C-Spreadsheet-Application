@@ -75,19 +75,6 @@ void minMax(double *arr, double *min, double *max, int index)
     }
 }
 
-/**
- * @brief A word to Capitalize
- * 
- * @param word 
- */
-void toCaps(char *word)
-{
-    while (*word != '\0')
-    {
-        *word = toupper(*word);
-        word++;
-    }
-}
 
 /**
  * @brief Checks if the argument has a valid cell format. 
@@ -732,6 +719,7 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
 
     if (*cmd->input == '=')
     {
+
         cmd->input++;
         char *funcStart = cmd->input;
         char *funcEnd   = NULL;
@@ -747,7 +735,6 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
             cmd->input++;
         }
 
-        printf("%s\n", funcEnd);
 
         if (funcEnd == NULL)
         {
