@@ -172,7 +172,7 @@ void* handleClientMessages(void* args)
 	
 	int quit = 0;
 
-	printf("[SERVER] New client. (%d)", data->socketNumber);
+	printf("[SERVER] New client. (%d)\n", data->socketNumber);
 	
 	// NOTE(afb) :: sending acknowledgement
 	struct ServerMessage ackMsg = {0};
