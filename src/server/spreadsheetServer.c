@@ -10,6 +10,7 @@ int createServerMessage(struct ServerMessage *msg, enum Code code, int *version,
 
     switch (code)
     {
+        case CONFLICT:
         case OK:
         {
             msg->header.code         = code;
@@ -26,11 +27,11 @@ int createServerMessage(struct ServerMessage *msg, enum Code code, int *version,
         case COORD_NOT_FOUND:
         case IMPOSSIBLE:
         case BAD_SYNTAX:
-        case CONFLICT:
         case NO_FUNCTION:
         case DISCONNECTED:
         case FORBIDDEN:
         case ACKNOWLEDGED:
+        case SERVER_ERROR:
         {
             msg->header.code         = code;
             msg->header.clientCount  = clientCount;
@@ -44,6 +45,13 @@ int createServerMessage(struct ServerMessage *msg, enum Code code, int *version,
 
         default:
         {
+            msg->header.code         = code;
+            msg->header.clientCount  = clientCount;
+            msg->header.sheetVersion = *version;
+            msg->header.senderId     = 0;
+            msg->message             = NULL;
+            msg->sheet               = *sheet;
+            result                   = 1;
         }
         break;
     }
