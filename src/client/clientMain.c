@@ -314,6 +314,8 @@ int main(int argc, char const *argv[])
 
     // get unique client ID assigned by server
     CID = atoi(serverMsg.message);
+    bufferIsDirty   = 0;
+
 
     // intialize the saveReq since it does not change except for the sheetVersion
     saveReq.header.code        = SAVE;
@@ -391,6 +393,7 @@ int main(int argc, char const *argv[])
                 // resume child
                 bufferIsDirty   = 0;
                 shouldChildWait = 0;
+                returnToMenu=1;
                 break;
             default:
                 break;

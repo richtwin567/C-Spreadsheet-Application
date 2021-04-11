@@ -23,6 +23,7 @@ int createServerMessage(struct ServerMessage* msg, enum Code code, int* version,
 			msg->header.clientCount = clientCount;
             msg->header.sheetVersion = (*version)++;
             msg->sheet               = *sheet;
+			msg->message=NULL;
 
             result = 1;
         }
@@ -35,6 +36,7 @@ int createServerMessage(struct ServerMessage* msg, enum Code code, int* version,
             msg->header.code         = code;
 			msg->header.clientCount = clientCount;
             msg->header.sheetVersion = *version;
+			msg->message=NULL;
             result                   = 1;
         }
         break;

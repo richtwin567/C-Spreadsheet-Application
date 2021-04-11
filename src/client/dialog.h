@@ -201,7 +201,7 @@ void printMsgFromCode(struct ServerMessage msg)
             break;
 
         case OK:
-            printSuccessMsg(msg.message == NULL ? "Spreadsheet updated successfully." : msg.message);
+            printSuccessMsg(msg.message == NULL ? "Request completed successfully." : msg.message);
             break;
         case BAD_SYNTAX:
             printErrorMsg(msg.message == NULL ? "There is a syntax error in your input. Please check it and try again." : msg.message, &msg.header.code);
@@ -227,7 +227,9 @@ void printMsgFromCode(struct ServerMessage msg)
         case CONN_REJECTED:
             printErrorMsg(msg.message == NULL ? "The server has rejected the connection due to it being at max connection capacity." : msg.message, &msg.header.code);
             break;
-
+        case SERVER_ERROR:
+            printErrorMsg(msg.message == NULL ? "Something went wrong on the server side." : msg.message, &msg.header.code);
+            break;
         default:
             printInfoMsg(msg.message);
             break;
