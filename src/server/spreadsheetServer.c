@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 {
     int portNo                   = 10000;
     const unsigned int clientCap = 10;
-
+	
     if (argc == 2)
     {
         portNo = atoi(argv[1]);
@@ -146,7 +146,6 @@ int main(int argc, char **argv)
     }
 
     // TODO(afb) :: Cleanup resources
-	
     printf("[SERVER] Closing...\n");
 
     close(server.socketNumber);
