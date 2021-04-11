@@ -278,7 +278,43 @@ void* handleClientMessages(void* args)
 
 					case SAVE:
 					{
-						// TODO(afb) :: Save spreadsheet
+						struct ServerMessage confirm;
+						confirm.header.clientCount = server->connectedClientsCount;
+						confirm.header.senderId = server->socketNumber;
+						confirm.header.sheetVersion = server->sheetVersion;
+						confirm.sheet = server->spreadsheet;
+						confirm.message=NULL;
+						if (server->connectedClientSockets[0] == message.header.senderId)
+						{
+							FILE *fptr;
+							fptr = fopen("Spreadsheet.txt", "w");
+
+							if(fptr!=NULL) 
+							{
+								fprintf(fptr,"Sheet size: %d \n", server->spreadsheet.size);
+								fprintf(fptr, "Row count: %d, Line count: %d \n", server->spreadsheet.rowCount, server->spreadsheet.lineLength );
+								for(int line = 0; line < server->spreadsheet.rowCount ; line++)
+								{
+									fprintf(fptr, "%s\n", server->spreadsheet.grid[line]);
+								}
+								fclose(fptr);
+								confirm.header.code=OK;
+
+							}
+							else
+							{
+								confirm.header.code=SERVER_ERROR;
+
+							}
+						} 
+						else
+						{
+							confirm.header.code=FORBIDDEN;
+							
+						}
+						char *packet = malloc(1);
+						int packetLen = serializeServerMsg(confirm, &packet);
+						send(message.header.senderId, packet, packetLen,0);
 					}break;
 
 					case DISCONNECTED:

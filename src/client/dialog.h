@@ -81,15 +81,14 @@ struct SheetCoord promptForCell(int *shouldReturnToMenu)
  * 
  * @return char* the data entered
  */
-char *promptForData(int *shouldReturnToMenu)
+char *promptForData()
 {
     //TODO pointer check
     char *data = calloc(1, sizeof *data);
-    char *input;
     char c;
     int i = 0;
 
-    printf("\nPlease enter the content for the cell or 'menu' to return to the menu: ");
+    printf("\nPlease enter the content for the cell: ");
     while ((c = getchar()) != '\n')
     {
         data[i] = c;
@@ -97,23 +96,6 @@ char *promptForData(int *shouldReturnToMenu)
         data = realloc(data, (i + 1) * sizeof *data);
     }
     data[i] = '\0';
-
-    input = malloc(i + 1);
-    strcpy(input, data);
-
-    toCaps(input);
-
-    if (strcmp(input, "MENU") == 0)
-    {
-        *shouldReturnToMenu = 1;
-        free(input);
-        free(data);
-        return NULL;
-    }
-    else
-    {
-        *shouldReturnToMenu = 0;
-    }
 
     return data;
 }
@@ -219,7 +201,7 @@ void printMsgFromCode(struct ServerMessage msg)
             break;
 
         case OK:
-            printSuccessMsg(msg.message == NULL ? "Spreadsheet updated successfully." : msg.message);
+            printSuccessMsg(msg.message == NULL ? "Request completed successfully." : msg.message);
             break;
         case BAD_SYNTAX:
             printErrorMsg(msg.message == NULL ? "There is a syntax error in your input. Please check it and try again." : msg.message, &msg.header.code);
@@ -245,7 +227,9 @@ void printMsgFromCode(struct ServerMessage msg)
         case CONN_REJECTED:
             printErrorMsg(msg.message == NULL ? "The server has rejected the connection due to it being at max connection capacity." : msg.message, &msg.header.code);
             break;
-
+        case SERVER_ERROR:
+            printErrorMsg(msg.message == NULL ? "Something went wrong on the server side." : msg.message, &msg.header.code);
+            break;
         default:
             printInfoMsg(msg.message);
             break;
