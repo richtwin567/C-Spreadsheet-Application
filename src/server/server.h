@@ -270,7 +270,17 @@ void* handleClientMessages(void* args)
 
 					case SAVE:
 					{
-						// TODO(afb) :: Save spreadsheet
+						if (server->connectedClientSockets[0] == message.header.senderId)
+						{
+							FILE *fptr;
+							fptr = fopen("Spreadsheet.txt", "w");
+							fprintf(fptr," Sheet size: %s \n", server->spreadsheet.size);
+							fprintf(fptr, "Row count: %s, Line count: %s \n", server->spreadsheet.rowCount, server->spreadsheet.lineLength );
+							for(int line = 0; line < server->spreadsheet.rowCount ; line++)
+							{
+								fprintf(fptr, "%s\n", server->spreadsheet.grid[line]);
+							}
+						}
 					}break;
 
 					case DISCONNECTED:
