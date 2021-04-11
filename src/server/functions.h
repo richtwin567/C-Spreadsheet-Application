@@ -73,17 +73,16 @@ int isValidArg(char *arg)
 
 int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
 {
-    char *argStart   = NULL;
-    char *argEnd     = NULL;
-    char *arg        = malloc(1);
-    char *valStr     = NULL;
     int arglen       = 0;
     int rangelen     = 0;
+    char *valStr     = NULL;
+    char *arg        = malloc(1);
+    char *argStart   = NULL;
+    char *argEnd     = NULL;
     char *range      = malloc(1);
     char *rangeEnd   = NULL;
     char *rangeStart = NULL;
-    char *operator   = NULL;
-    char *countStr   = NULL;
+    char *operator   = "+";
     char *next       = NULL;
     char *input      = cmd->input;
     char *funcName   = cmdi->funcName;
@@ -101,10 +100,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
         return 0;
     }
 
-    if (strcmp(funcName, "SUM") == 0 || strcmp(funcName, "AVERAGE") == 0)
-    {
-        operator= "+";
-    }
+    
 
     while (*input != '\0')
     {
@@ -147,7 +143,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
             }
 
             valStr = getPosition(*sheet, coords);
-            valStr = trim(valStr);
             read   = sscanf(valStr, "%lf", &val);
 
             if (read != 1)
@@ -206,7 +201,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
             }
 
             valStr = getPosition(*sheet, coords);
-            valStr = trim(valStr);
             read   = sscanf(valStr, "%lf", &val);
 
             if (read != 1)
@@ -255,7 +249,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
             }
 
             valStr = getPosition(*sheet, coords);
-            valStr = trim(valStr);
             read   = sscanf(valStr, "%lf", &val);
 
             if (read != 1)
@@ -286,7 +279,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
                         continue;
                     }
                     valStr = getPosition(*sheet, coords);
-                    valStr = trim(valStr);
                     read   = sscanf(valStr, "%lf", &val);
 
                     if (read != 1)
@@ -326,7 +318,6 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
                         continue;
                     }
                     valStr = getPosition(*sheet, coords);
-                    valStr = trim(valStr);
                     read   = sscanf(valStr, "%lf", &val);
 
                     if (read != 1)
@@ -436,7 +427,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
 
     if (range!=NULL)
     {
-        /* code */
+        free(range);
     }
     
 
@@ -661,7 +652,7 @@ int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct
         return 0;
     }
 
-    if (strcmp(funcName, "AVERAGE") == 0)
+    if (strcmp(funcName, "RANGE") == 0)
     {
         double min = MIN(rangearr);
         double max = MAX(rangearr);
@@ -776,12 +767,11 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
             {
                 case 1:
                     if (!tryParseArthimetic(cmd, &cmdi, code, sheet))
-                    {
+                    
                         memset(&cmdi, 0, sizeof(cmdi));
-                    }
+                    
                     return;
 
-                    break;
                 case 3:
 
                     break;
