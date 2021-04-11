@@ -47,11 +47,6 @@ struct CommandInfo
 char *ARITHMETIC_FUNC[] = {"AVERAGE", "SUM"};
 char *OTHER_FUNC[]      = {"RANGE"};
 
-/**
- * @brief A word to Capitalize
- * 
- * @param word 
- */
 double * minMax(arr)
 {
     max = arr[0];
@@ -72,7 +67,11 @@ double * minMax(arr)
     
 }
     
-
+/**
+ * @brief A word to Capitalize
+ * 
+ * @param word 
+ */
 void toCaps(char *word)
 {
     while (*word != '\0')
@@ -82,6 +81,12 @@ void toCaps(char *word)
     }
 }
 
+/**
+ * @brief Checks if the argument has a valid cell format. 
+ * 
+ * @param arg the arg to check
+ * @return int 1 if the arg is valid and 0 otherwise
+ */
 int isValidArg(char *arg)
 {
     char *col = malloc(2 * (sizeof *col));
@@ -92,6 +97,15 @@ int isValidArg(char *arg)
     return read == 2;
 }
 
+/**
+ * @brief Try to parse and calculate the SUM and AVERAGE functions    
+ * 
+ * @param cmd the command from the client
+ * @param cmdi information about the command
+ * @param code the return code
+ * @param sheet the sheet to modify
+ * @return int 1 if successful and 0 otherwise
+ */
 int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
 {
     int arglen       = 0;
