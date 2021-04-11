@@ -175,14 +175,14 @@ void* handleClientMessages(void* args)
 	printf("[SERVER] New client. (%d)\n", data->socketNumber);
 
 	// NOTE(afb) :: sending acknowledgement
-	struct ServerMessage ackMsg = {0};
+	struct ServerMessage ackMsg;
 
 	ackMsg.header.code         = ACKNOWLEDGED;
 	ackMsg.header.sheetVersion = server->sheetVersion;
 	ackMsg.sheet               = server->spreadsheet;
 
 	ackMsg.message = (char*)malloc(countDigits(data->socketNumber)+1);
-	sprintf(ackMsg.message, "%d", server->socketNumber);
+	sprintf(ackMsg.message, "%d", data->socketNumber);
 
 	char* packet = malloc(1);
 	int msgLen = serializeServerMsg(ackMsg, &packet);
