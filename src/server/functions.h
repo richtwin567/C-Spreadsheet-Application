@@ -49,20 +49,30 @@ char *OTHER_FUNC[]      = {"RANGE"};
 
 void minMax(double *arr, double *min, double *max, int index)
 {
-    *max = arr[0];
-    *min = arr[0];
-    int i;
-    
-    for (i = 0; i<index+1; i++)
+    if (index > 0)
     {
-        if (arr[i] > *max){
-            *max = arr[i];
-        }
-        if (arr[i] < *min){
-            *min = arr[i];
+        *max = arr[0];
+        *min = arr[0];
+
+        int i;
+
+        for (i = 0; i < index; i++)
+        {
+            if (arr[i] > *max)
+            {
+                *max = arr[i];
+            }
+            if (arr[i] < *min)
+            {
+                *min = arr[i];
+            }
         }
     }
-    
+    else
+    {
+        *min = 0;
+        *max = 0;
+    }
 }
 
 /**
