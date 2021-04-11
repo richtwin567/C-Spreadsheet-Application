@@ -100,7 +100,7 @@ void closeServer(Server* server)
 	struct ServerMessage msg = {0};
 	msg.header.code = DISCONNECTED;
 	//msg.header.sheetVersion = server->sheetVersion;
-	msg.header.sheetVersion = server->socketNumber;
+	msg.header.sheetVersion = server->sheetVersion;
 	//msg.sheet = server->spreadsheet;
 
 	char* packet = 0;
@@ -137,10 +137,17 @@ void disconnectClient(Server* server, int clientSocket)
 				return;
 			}
 
-			// TODO(afb) :: send client disconnect message
+			struct ServerMessage msg = {0};
+			msg.header.code = DISCONNECTED;
+			msg.header.sheetVersion = server->sheetVersion;
+			msg.sheet = server->spreadsheet;
+			char* packet = 0;
+			
+			int msgLen = serializeServerMsg(msg, &packet);
+			write(clientSocket, packet, msgLen);
 			
 			server->connectedClientSockets[i] =
-				server->connectedClientSockets[server->connectedClientsCount];
+				server->connectedClientSockets[server->connectedClientsCount-1];
 
 			server->connectedClientsCount--;
 		}
@@ -165,7 +172,17 @@ void* handleClientMessages(void* args)
 	
 	int quit = 0;
 
-	// TODO(afb) :: send acknowledgement
+	// NOTE(afb) :: sending acknowledgement
+	struct ServerMessage ackMsg = {0};
+	ackMsg.header.code = ACKNOWLEDGED;
+	ackMsg.header.sheetVersion = server->sheetVersion;
+	ackMsg.sheet = server->spreadsheet;
+	char* packet = 0;
+	int msgLen = serializeServerMsg(ackMsg, &packet);
+	write(data->socketNumber, packet, msgLen);
+	free(packet);
+	
+	
 	struct ClientMessage message = {0};
 	char* msg = NULL;
 	char* completeMsg = NULL;
