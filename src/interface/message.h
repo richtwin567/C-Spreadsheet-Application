@@ -29,6 +29,7 @@ struct Header
     enum Code code;   // The code associated with the message
     int sheetVersion; // The latest version of the sheet that the sender has
     int senderId;     // The sender's ID number
+    int clientCount;    // The number of currently connected clients
 };
 
 /**
@@ -247,7 +248,8 @@ int parseServerMsg(char *msg, struct ServerMessage *parsedMsg)
     }
     else
     {
-        parsedMsg->message = realloc(parsedMsg, messageLength);
+        free(parsedMsg->message);
+        parsedMsg->message = malloc(messageLength);
     }
 
     // allocate/reallocate memory for spreadsheet grid

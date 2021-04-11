@@ -29,15 +29,15 @@ enum Code
     IMPOSSIBLE      = 422, // The request made by the user is impossible to complete, eg. dividing by 0 or performing arithmetic between a number and a word.
     NO_FUNCTION     = 501, // The syntax is valid but the server does not have an implementation for the requested function
     CONN_REJECTED   = 503, // The server has already reached max connections at the moment
+    SERVER_ERROR    = 500, // Something went wrong with the server
 
     // Codes sent by the client
 
     REQUEST = 1, // An ordinary request to update the spreadsheet
-    SAVE    = 2,  // A request to save the spreadsheet
+    SAVE    = 2, // A request to save the spreadsheet
 
     // codes sent by both
-    DISCONNECTED    = 410, // The server has disconnected the client most likely due to the first user disconnecting or the client has disconnected from the server
+    DISCONNECTED = 410, // The server has disconnected the client most likely due to the first user disconnecting or the client has disconnected from the server
 };
-
 
 #endif

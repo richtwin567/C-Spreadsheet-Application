@@ -9,6 +9,7 @@
 
 #include "../spreadsheet/spreadsheetData.h"
 #include "../interface/message.h"
+#include <unistd.h>
 
 #define MESSAGE_CAPACITY 32
 
@@ -174,14 +175,14 @@ void* handleClientMessages(void* args)
 	printf("[SERVER] New client. (%d)\n", data->socketNumber);
 
 	// NOTE(afb) :: sending acknowledgement
-	struct ServerMessage ackMsg = {0};
+	struct ServerMessage ackMsg;
 
 	ackMsg.header.code         = ACKNOWLEDGED;
 	ackMsg.header.sheetVersion = server->sheetVersion;
 	ackMsg.sheet               = server->spreadsheet;
 
 	ackMsg.message = (char*)malloc(countDigits(data->socketNumber)+1);
-	sprintf(ackMsg.message, "%d", server->socketNumber);
+	sprintf(ackMsg.message, "%d", data->socketNumber);
 
 	char* packet = malloc(1);
 	int msgLen = serializeServerMsg(ackMsg, &packet);
@@ -311,6 +312,10 @@ void* acceptClientsAsync(void* args)
 			server->maxClientCapacity *= 2;
 			void* resultBuffer = realloc(server->connectedClientSockets, server->maxClientCapacity * sizeof(int));
 
+			pthread_t* buff2 = realloc(clientMessageHandler,server->maxClientCapacity*sizeof(pthread_t));
+			
+			ClientMessageThread* buff3 = realloc(threadData, server->maxClientCapacity*sizeof(buff3));
+
 			if(resultBuffer == NULL)
 			{
 				// TODO(afb) :: log error.
@@ -321,11 +326,23 @@ void* acceptClientsAsync(void* args)
 			{
 				server->connectedClientSockets = (int*)resultBuffer;
 			}
+
+			if(buff2!=NULL)
+			{
+				clientMessageHandler = buff2;
+			}
+
+			if(buff3!=NULL)
+			{
+				threadData = buff3;
+			}
 		}
 		
 		int newClient = accept(server->socketNumber,
 							   (struct sockaddr*)&newClientAddress,
 							   &newClientAddressSize);
+		
+		
 
 		ClientMessageThread* data = &(threadData[server->connectedClientsCount]);
 		data->socketNumber = newClient;
@@ -340,6 +357,7 @@ void* acceptClientsAsync(void* args)
 		}
 		else
 		{
+			server->connectedClientSockets[server->connectedClientsCount] = newClient;
 			pthread_mutex_lock(&server->serverDataLock);
 			pthread_t* clientThread = &(clientMessageHandler[server->connectedClientsCount++]);
 			pthread_mutex_unlock(&server->serverDataLock);

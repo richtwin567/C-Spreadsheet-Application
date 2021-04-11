@@ -31,7 +31,7 @@ int bufferIsDirty   = 0;  // whether there is a pending message for the user
 int sock            = -1; // the socket file descriptor for connecting to the server
 pthread_t thread;         // a thread that will handle incoming server messages
 pthread_t mainThread;     // the main thread which handles user input
-int CID ; // The client's ID assigned by the server
+int CID;                  // The client's ID assigned by the server
 
 // END GLOBALS //
 
@@ -77,13 +77,13 @@ void exitProgram(int code)
     {
         //send disconnect message
         struct ClientMessage disconnect;
-        disconnect.command=NULL;
-        disconnect.header.code=DISCONNECTED;
-        disconnect.header.senderId = CID;
-        disconnect.header.sheetVersion =-9999;
-        char *packet = malloc(1);
-        int length = serializeClientMsg(disconnect, &packet);
-        send(sock,packet,length,0);
+        disconnect.command             = NULL;
+        disconnect.header.code         = DISCONNECTED;
+        disconnect.header.senderId     = CID;
+        disconnect.header.sheetVersion = -9999;
+        char *packet                   = malloc(1);
+        int length                     = serializeClientMsg(disconnect, &packet);
+        send(sock, packet, length, 0);
 
         //exit
         pthread_kill(thread, SIGUSR2);
@@ -123,6 +123,7 @@ void exitOnSignal(int sig, siginfo_t *info, void *ucontext)
  */
 void receiveMsg(struct ServerMessage *data, char **msgPart, char **msg)
 {
+    
     *msgPart = realloc(*msgPart, HEADER_SIZE);
 
     // receive header
@@ -206,7 +207,7 @@ void *waitForSheet(struct ServerMessage *data)
         timeout.tv_sec  = 10;
         timeout.tv_usec = 0;
 
-        int ready = select(sock+1, &fds, NULL, NULL, &timeout);
+        int ready = select(sock + 1, &fds, NULL, NULL, &timeout);
         if (ready)
         {
             receiveMsg(data, &msgPart, &msg);
@@ -301,16 +302,18 @@ int main(int argc, char const *argv[])
     CID = atoi(serverMsg.message);
 
     // intialize the saveReq since it does not change except for the sheetVersion
-    saveReq.header.code     = SAVE;
-    saveReq.header.senderId = CID;
+    saveReq.header.code        = SAVE;
+    saveReq.header.senderId    = CID;
+    saveReq.header.clientCount = -1;
 
     printSuccessMsg("Started");
-        // TODO @richtwin567 test client
-        int choice = promptMenu();
-        int returnToMenu=0;
+    // TODO @richtwin567 test client
+    int choice       = promptMenu();
+    int returnToMenu = 0;
     while (1)
     {
-        if(returnToMenu){
+        if (returnToMenu)
+        {
             choice = promptMenu();
         }
         switch (choice)
@@ -332,11 +335,13 @@ int main(int argc, char const *argv[])
 
                 // get command from user
                 clientReq.command->coords = promptForCell(&returnToMenu);
-                if(returnToMenu){
+                if (returnToMenu)
+                {
                     continue;
                 }
-                clientReq.command->input  = promptForData(&returnToMenu);
-                if(returnToMenu){
+                clientReq.command->input = promptForData(&returnToMenu);
+                if (returnToMenu)
+                {
                     continue;
                 }
 
@@ -344,18 +349,24 @@ int main(int argc, char const *argv[])
                 clientReq.header.code         = REQUEST;
                 clientReq.header.sheetVersion = currentVersion;
                 clientReq.header.senderId     = CID;
-
+                clientReq.header.clientCount=-1;
                 // send command
                 packetLength = serializeClientMsg(clientReq, &packet);
-                if (send(sock, packet, packetLength, 0)!=packetLength){
+                if (send(sock, packet, packetLength, 0) != packetLength)
+                {
                     perror("Send failed");
                 }
+                shouldMainWait = 1;
+                // wait until the message has been received
+                while (shouldMainWait)
+                    ;
                 break;
             case 2:
                 saveReq.header.sheetVersion = serverMsg.header.sheetVersion;
 
                 packetLength = serializeClientMsg(saveReq, &packet);
-                if (send(sock, packet, packetLength, 0)!=packetLength){
+                if (send(sock, packet, packetLength, 0) != packetLength)
+                {
                     perror("Send failed");
                 }
                 shouldMainWait = 1;
