@@ -31,6 +31,7 @@ int bufferIsDirty   = 0;  // whether there is a pending message for the user
 int sock            = -1; // the socket file descriptor for connecting to the server
 pthread_t thread;         // a thread that will handle incoming server messages
 pthread_t mainThread;     // the main thread which handles user input
+int CID ; // The client's ID assigned by the server
 
 // END GLOBALS //
 
@@ -74,6 +75,17 @@ void exitProgram(int code)
 {
     if (pthread_self() == mainThread)
     {
+        //send disconnect message
+        struct ClientMessage disconnect;
+        disconnect.command=NULL;
+        disconnect.header.code=DISCONNECTED;
+        disconnect.header.senderId = CID;
+        disconnect.header.sheetVersion =-9999;
+        char *packet = malloc(1);
+        int length = serializeClientMsg(disconnect, &packet);
+        send(sock,packet,length,0);
+
+        //exit
         pthread_kill(thread, SIGUSR2);
         close(sock);
         pthread_join(thread, NULL);
@@ -188,7 +200,21 @@ void *waitForSheet(struct ServerMessage *data)
         }
 
         // get acknowledgement
-        receiveMsg(data, &msgPart, &msg);
+        fd_set fds;
+        FD_SET(sock, &fds);
+        struct timeval timeout;
+        timeout.tv_sec  = 10;
+        timeout.tv_usec = 0;
+
+        int ready = select(sock+1, &fds, NULL, NULL, &timeout);
+        if (ready)
+        {
+            receiveMsg(data, &msgPart, &msg);
+        }
+        else
+        {
+            sendExitSignal("Failed to connect to server");
+        }
 
         if (data->header.code != ACKNOWLEDGED || data->message == NULL)
         {
@@ -272,7 +298,7 @@ int main(int argc, char const *argv[])
         ;
 
     // get unique client ID assigned by server
-    const int CID = atoi(serverMsg.message);
+    CID = atoi(serverMsg.message);
 
     // intialize the saveReq since it does not change except for the sheetVersion
     saveReq.header.code     = SAVE;
