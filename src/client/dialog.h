@@ -21,7 +21,7 @@
  * 
  * @return struct SheetCoord the coordinates entered
  */
-struct SheetCoord promptForCell(int *shouldReturnToMenu)
+struct SheetCoord promptForCell(int *shouldReturnToMenu, int *shouldRefresh)
 {
     char *col   = malloc(2);
     char *row   = malloc(2);
@@ -31,7 +31,7 @@ struct SheetCoord promptForCell(int *shouldReturnToMenu)
 
     do
     {
-        printf("\nPlease enter the coordinates in cr format where c is the column letter and r is the row number (eg. E8) or enter 'menu' to return the menu: ");
+        printf("\nYou may do one of the following:\nEnter the coordinates in cr format where c is the column letter and r is the row number (eg. E8)\nEnter 'menu' to return the menu\nEnter 'refresh' to fetch the latest spreadsheet: ");
 
         scanf("%s", input);
         flushStdin();
@@ -43,6 +43,7 @@ struct SheetCoord promptForCell(int *shouldReturnToMenu)
             coords.col          = 'A';
             coords.row          = -1;
             *shouldReturnToMenu = 1;
+            *shouldRefresh      = 0;
             free(col);
             free(row);
             free(input);
@@ -51,6 +52,24 @@ struct SheetCoord promptForCell(int *shouldReturnToMenu)
         else
         {
             *shouldReturnToMenu = 0;
+            *shouldRefresh      = 0;
+        }
+
+        if (strcmp(input, "REFRESH") == 0)
+        {
+            coords.col          = 'A';
+            coords.row          = -1;
+            *shouldReturnToMenu = 0;
+            *shouldRefresh      = 1;
+            free(col);
+            free(row);
+            free(input);
+            return coords;
+        }
+        else
+        {
+            *shouldReturnToMenu = 0;
+            *shouldRefresh      = 0;
         }
 
         read = sscanf(input, "%1[a-zA-Z]%1[1-9]", col, row);
@@ -213,13 +232,13 @@ void printMsgFromCode(struct ServerMessage msg)
             printErrorMsg(msg.message == NULL ? "One or more of the requested coordinates do not exist on the sheet." : msg.message, &msg.header.code);
             break;
         case CONFLICT:
-            printWarningMsg(msg.message == NULL ? "The board has been changed while you were working on it" : msg.message);
+            printWarningMsg(msg.message == NULL ? "The sheet has been changed by another user while you were working on it. There may be unexpected results" : msg.message);
             break;
         case DISCONNECTED:
             printWarningMsg(msg.message == NULL ? "You have been disconnected from the server." : msg.message);
             break;
         case IMPOSSIBLE:
-            printErrorMsg(msg.message == NULL ? "The server could not completet the calculation. Check your input cells." : msg.message, &msg.header.code);
+            printErrorMsg(msg.message == NULL ? "The server could not complete the calculation. Check your input cells for logical errors." : msg.message, &msg.header.code);
             break;
         case NO_FUNCTION:
             printErrorMsg(msg.message == NULL ? "The server does not support the requested function." : msg.message, &msg.header.code);
@@ -231,7 +250,7 @@ void printMsgFromCode(struct ServerMessage msg)
             printErrorMsg(msg.message == NULL ? "Something went wrong on the server side." : msg.message, &msg.header.code);
             break;
         default:
-            printInfoMsg(msg.message);
+            printInfoMsg(msg.message == NULL ? "" : msg.message);
             break;
     }
 }

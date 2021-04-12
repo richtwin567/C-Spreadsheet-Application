@@ -30,6 +30,7 @@ enum Code
     NO_FUNCTION     = 501, // The syntax is valid but the server does not have an implementation for the requested function
     CONN_REJECTED   = 503, // The server has already reached max connections at the moment
     SERVER_ERROR    = 500, // Something went wrong with the server
+    UPDATE          = 205, // A simple update to the sheet
 
     // Codes sent by the client
 

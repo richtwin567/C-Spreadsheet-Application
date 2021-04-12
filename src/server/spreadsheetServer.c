@@ -3,53 +3,61 @@
 
 #include <ctype.h>
 #include <stdlib.h>
-#include "server.h"
 
-
-int createServerMessage(struct ServerMessage* msg, enum Code code, int* version, struct Sheet* sheet, int clientCount)
+int createServerMessage(struct ServerMessage *msg, enum Code code, int *version, struct Sheet *sheet, int clientCount)
 {
     int result = 0;
 
     switch (code)
     {
-		case COORD_NOT_FOUND:
-		case IMPOSSIBLE:
-		case BAD_SYNTAX:
-		case CONFLICT:
-		case NO_FUNCTION:
+        case CONFLICT:
         case OK:
         {
             msg->header.code         = code;
-			msg->header.clientCount = clientCount;
-            msg->header.sheetVersion = (*version)++;
+            msg->header.clientCount  = clientCount;
+            msg->header.sheetVersion = ++(*version);
             msg->sheet               = *sheet;
-			msg->message=NULL;
+            msg->header.senderId     = 0;
+            msg->message             = NULL;
 
             result = 1;
         }
         break;
 
-		case DISCONNECTED:
-		case FORBIDDEN:
+        case COORD_NOT_FOUND:
+        case IMPOSSIBLE:
+        case BAD_SYNTAX:
+        case NO_FUNCTION:
+        case DISCONNECTED:
+        case FORBIDDEN:
         case ACKNOWLEDGED:
+        case SERVER_ERROR:
         {
             msg->header.code         = code;
-			msg->header.clientCount = clientCount;
+            msg->header.clientCount  = clientCount;
             msg->header.sheetVersion = *version;
-			msg->message=NULL;
+            msg->header.senderId     = 0;
+            msg->message             = NULL;
+            msg->sheet               = *sheet;
             result                   = 1;
         }
         break;
 
         default:
         {
+            msg->header.code         = code;
+            msg->header.clientCount  = clientCount;
+            msg->header.sheetVersion = *version;
+            msg->header.senderId     = 0;
+            msg->message             = NULL;
+            msg->sheet               = *sheet;
+            result                   = 1;
         }
         break;
     }
 
     return result;
 }
-
 
 int main(int argc, char **argv)
 {
@@ -67,13 +75,12 @@ int main(int argc, char **argv)
 
     Server server = startServer(portNo, clientCap);
 
-
     if (server.state == SERVER_ACTIVE)
     {
         printf("[SERVER] Active...\n");
-		// NOTE(afb) :: Setting up spreadsheet
-		server.spreadsheet.size = 9;
-		getBlankSheet(&server.spreadsheet);
+        // NOTE(afb) :: Setting up spreadsheet
+        server.spreadsheet.size = 9;
+        getBlankSheet(&server.spreadsheet);
 
         pthread_mutex_init(&server.serverDataLock, NULL);
         pthread_mutex_init(&server.messageQueueLock, NULL);
@@ -101,12 +108,17 @@ int main(int argc, char **argv)
             int success = getNextMessage(server.messages, &cliMsg);
             
 
-			if (success)
+            if (success)
             {
                 enum Code code;
                 parseCommand(cliMsg.command,
                              &code,
                              &server.spreadsheet);
+
+                if (code == OK && cliMsg.header.sheetVersion < server.sheetVersion)
+                {
+                    code = CONFLICT;
+                }
 
                 if (createServerMessage(&serverMsg,
                                         code,
@@ -119,6 +131,17 @@ int main(int argc, char **argv)
                     for (int i = 0, len = server.connectedClientsCount; i < len; i++)
                     {
                         int soc = server.connectedClientSockets[i];
+                        if (cliMsg.header.senderId != soc)
+                        {
+                            serverMsg.header.code = UPDATE;
+                        }
+                        else
+                        {
+                            serverMsg.header.code = code;
+                        }
+
+                        int packetLen = serializeServerMsg(serverMsg,
+                                                           &packet);
                         send(soc, packet, packetLen, 0);
                     }
                 }
@@ -150,5 +173,4 @@ int main(int argc, char **argv)
 
 	printf("[SERVER] Closed\n");
     return 0;
-
 }
