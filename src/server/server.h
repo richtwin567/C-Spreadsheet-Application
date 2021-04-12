@@ -43,10 +43,6 @@ typedef struct _Server
 	MessageQueue* messages;
 	pthread_mutex_t messageQueueLock;
 	
-	// TODO(afb) :: Determine if this just needs to be a 'bool'
-	// to decide if the sever should close or not. Consider
-	// the normal way the server gets notified to close. What
-	// should happen if everyone leaves etc.
 	struct Sheet spreadsheet;
 	int sheetVersion;
 	
@@ -96,33 +92,29 @@ int getNextMessage(MessageQueue* messages, struct ClientMessage* msg)
 
 void closeServer(Server* server)
 {
-	// TODO(afb) :: Dispatch message to clients for them to
-	// close before closing
 	struct ServerMessage msg = {0};
 	msg.header.code = DISCONNECTED;
-	//msg.header.sheetVersion = server->sheetVersion;
 	msg.header.sheetVersion = server->sheetVersion;
-	//msg.sheet = server->spreadsheet;
+	msg.header.clientCount = server->connectedClientsCount;
+	msg.sheet = server->spreadsheet;
 
-	char* packet = 0;
+	char* packet = malloc(1);
 	int msgLen = serializeServerMsg(msg, &packet);
 
-	pthread_mutex_lock(&(server->serverDataLock));
-	
-	for(int i = 0, len = server->connectedClientsCount; i < len; i++)
+	for(int i = 1, len = server->connectedClientsCount; i < len; i++)
 	{
 		int cli = server->connectedClientSockets[i];
-		send(cli, packet, msgLen,0);
+		send(cli, packet, msgLen, 0);
+		printf("[SERVER] Client (%d) disconnected.\n", cli);
+
 		server->connectedClientsCount--;
 	}
 
-	pthread_mutex_unlock(&(server->serverDataLock));
+	server->connectedClientsCount--;
+	
 	shutdown(server->socketNumber, SHUT_RDWR);
 
 	server->state = SERVER_INVALID;
-	// TODO(afb) :: save spreadsheet
-	// TODO(afb) :: cleanup resources
-	//close(server.socketNumber);
 }
 
 
@@ -139,16 +131,6 @@ void disconnectClient(Server* server, int clientSocket)
 			}
 
 			printf("[SERVER] Client (%d) disconnected.\n", clientSocket);
-			/*
-			struct ServerMessage msg = {0};
-			msg.header.code = DISCONNECTED;
-			msg.header.sheetVersion = server->sheetVersion;
-			msg.sheet = server->spreadsheet;
-			char* packet = malloc(1);
-			
-			int msgLen = serializeServerMsg(msg, &packet);
-			send(clientSocket, packet, msgLen,0);
-			*/
 			
 			server->connectedClientSockets[i] =
 				server->connectedClientSockets[server->connectedClientsCount-1];
@@ -161,18 +143,9 @@ void disconnectClient(Server* server, int clientSocket)
 	}
 }
 
-// TODO(afb) :: Remove. May not be necessary
-void sendMessage(int clientSocket, struct ServerMessage msg, char** packet)
-{
-	int msgLen = serializeServerMsg(msg, packet);
-	send(clientSocket, *packet, msgLen,0);
-}
 
 void* handleClientMessages(void* args)
 {
-	// TODO(afb) :: Complete funcion
-	// Closing client handler
-	
 	ClientMessageThread* data = (ClientMessageThread*)args;
 	Server* server = data->server;
 	
@@ -201,8 +174,7 @@ void* handleClientMessages(void* args)
 	char* msg = malloc(1);
 	char* completeMsg = malloc(1);
 	
-	// TODO(afb) :: Consider if its better to use read or recv.
-	while(!quit)
+	while(!quit && (server->state != SERVER_INVALID))
 	{
 		// recieve header
 		int error = read(data->socketNumber,
@@ -232,19 +204,16 @@ void* handleClientMessages(void* args)
 
 			if(error <= 0)
 			{
-				// TODO(afb) :: log error
-				pthread_mutex_lock(&(server->serverDataLock));
+				printf("[SERVER] Client error. Disconnecting...\n");
 
+				pthread_mutex_lock(&(server->serverDataLock));
 				disconnectClient(server, data->socketNumber);
-			
 				pthread_mutex_unlock(&(server->serverDataLock));
 
 				quit = 1;
 			}
 			else
 			{
-				pthread_mutex_lock(&(server->serverDataLock));
-				
 				completeMsg = realloc(completeMsg, HEADER_SIZE + msgSize);
 				memset(completeMsg, 0, HEADER_SIZE + msgSize);
 				
@@ -271,13 +240,14 @@ void* handleClientMessages(void* args)
 						strcpy(storedMsg.command->input,
 							   message.command->input);
 
-						pthread_mutex_lock(&(server->serverDataLock));
+						pthread_mutex_lock(&(server->messageQueueLock));
 						addClientMessage(data->messageQueue, storedMsg);
-						pthread_mutex_unlock(&(server->serverDataLock));
+						pthread_mutex_unlock(&(server->messageQueueLock));
 					}break;
 
 					case SAVE:
 					{
+						pthread_mutex_lock(&(server->serverDataLock));
 						struct ServerMessage confirm;
 						confirm.header.clientCount = server->connectedClientsCount;
 						confirm.header.senderId = server->socketNumber;
@@ -315,11 +285,12 @@ void* handleClientMessages(void* args)
 						char *packet = malloc(1);
 						int packetLen = serializeServerMsg(confirm, &packet);
 						send(message.header.senderId, packet, packetLen,0);
+
+						pthread_mutex_unlock(&(server->serverDataLock));
 					}break;
 
 					case DISCONNECTED:
 					{
-						//printf("%d : %s\n", );
 						pthread_mutex_lock(&(server->serverDataLock));
 						disconnectClient(server, data->socketNumber);
 						pthread_mutex_unlock(&(server->serverDataLock));
@@ -425,13 +396,11 @@ void* acceptClientsAsync(void* args)
 											  handleClientMessages,
 											  data)))
 			{
-				// TODO(afb) :: log sucess
 				printf("[SERVER] New client thread created.\n");
 				pthread_detach(*clientThread);
 			}
 			else
 			{
-				// TODO(afb) :: log error
 				printf("[SERVER] Failed to create new client thread.\n");
 			}
 		}
@@ -446,7 +415,6 @@ void* acceptClientsAsync(void* args)
 
 int shouldClose(Server server)
 {
-	// TODO(afb) :: Test to see if first client has left
 	return server.state == SERVER_INVALID;
 }
 
@@ -464,7 +432,7 @@ Server startServer(int portNumber, unsigned int maxClients)
 
 	if((result.socketNumber = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
-		// TODO(afb) :: log error
+		printf("[SERVER] Socket not available.\n");
 		result.state = SERVER_INVALID;
 	}
 	else
@@ -479,13 +447,13 @@ Server startServer(int portNumber, unsigned int maxClients)
 	if(bind(result.socketNumber, (struct sockaddr*)&serverAddress,
 			sizeof(serverAddress)) < 0)
 	{
-		// TODO(afb) :: log error
+		printf("[SERVER] Cannot bind to socket.\n");
 		result.state = SERVER_INVALID;
 	}
 
 	if(listen(result.socketNumber, 50) < 0)
 	{
-		// TODO(afb) :: log error
+		printf("[SERVER] Cannot listen.\n");
 		result.state = SERVER_INVALID;
 	}
 

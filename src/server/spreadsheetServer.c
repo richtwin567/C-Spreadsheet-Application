@@ -54,7 +54,7 @@ int createServerMessage(struct ServerMessage* msg, enum Code code, int* version,
 int main(int argc, char **argv)
 {
     int portNo                   = 10000;
-    const unsigned int clientCap = 1000;
+    const unsigned int clientCap = 10000;
 	
     if (argc == 2)
     {
@@ -78,16 +78,15 @@ int main(int argc, char **argv)
         pthread_mutex_init(&server.serverDataLock, NULL);
         pthread_mutex_init(&server.messageQueueLock, NULL);
 
-        if ((threadError = pthread_create(&connectionThread, NULL,
+        if (!(threadError = pthread_create(&connectionThread, NULL,
                                           (void *)acceptClientsAsync,
-                                          &server)) == 0)
+                                          &server)))
         {
-            // TODO(afb) :: log success
             printf("[SERVER] Accepting clients...\n");
+			pthread_detach(connectionThread);
         }
         else
         {
-            // TODO(afb) :: handle error
             printf("[SERVER] Failed to create thread: %d\n", threadError);
             return -1;
         }
@@ -100,7 +99,7 @@ int main(int argc, char **argv)
         {
             pthread_mutex_lock(&(server.serverDataLock));
             int success = getNextMessage(server.messages, &cliMsg);
-            pthread_mutex_unlock(&(server.serverDataLock));
+            
 
 			if (success)
             {
@@ -114,8 +113,6 @@ int main(int argc, char **argv)
                                         &server.sheetVersion,
                                         &server.spreadsheet, server.connectedClientsCount))
                 {
-                    pthread_mutex_lock(&(server.serverDataLock));
-
                     int packetLen = serializeServerMsg(serverMsg,
                                                        &packet);
 
@@ -124,8 +121,6 @@ int main(int argc, char **argv)
                         int soc = server.connectedClientSockets[i];
                         send(soc, packet, packetLen, 0);
                     }
-
-                    pthread_mutex_unlock(&(server.serverDataLock));
                 }
 
                 free(cliMsg.command);
@@ -138,12 +133,13 @@ int main(int argc, char **argv)
 
             // printf("[SERVER] Connected clients: %d\n", server.connectedClientsCount);
 
+			pthread_mutex_unlock(&(server.serverDataLock));
+			
             fflush(stdout);
         }
     }
     else
     {
-        // TODO(afb) :: log error
         printf("[SERVER] Failed to start.\n");
     }
 
@@ -152,7 +148,7 @@ int main(int argc, char **argv)
 
     close(server.socketNumber);
 
-	printf("[SERVER] Closing...\n");
+	printf("[SERVER] Closed\n");
     return 0;
 
 }
