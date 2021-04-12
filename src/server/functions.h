@@ -47,16 +47,24 @@ struct CommandInfo
 char *ARITHMETIC_FUNC[] = {"AVERAGE", "SUM"};
 char *OTHER_FUNC[]      = {"RANGE"};
 
-void minMax(double *arr, double *min, double *max, int index)
+/**
+ * @brief Finds the minimum and maximum of the given array
+ * 
+ * @param arr The array
+ * @param min To be assigned the minimum number
+ * @param max to be assigned the maximum number
+ * @param length the number of items in the array
+ */
+void minMax(double *arr, double *min, double *max, int length)
 {
-    if (index > 0)
+    if (length > 0)
     {
         *max = arr[0];
         *min = arr[0];
 
         int i;
 
-        for (i = 0; i < index; i++)
+        for (i = 0; i < length; i++)
         {
             if (arr[i] > *max)
             {
@@ -132,6 +140,8 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
 
     while (*input != '\0')
     {
+        // commented out an implementation that distinguished between , and : in the function args
+
         /* if (*input == ',')
         {
             argEnd = input;
@@ -237,7 +247,8 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
                 return 0;
             }
             free(valStr); */
-
+            
+            // find where the range ends
             rangeStart = ++input;
 
             while (*input != '\0' && *input != ')' && *input != ',')
@@ -289,7 +300,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
 
             if (arg[0] == range[0] && arg[1] < range[1])
             {
-
+                // add the values where applicable as long as the coordinate exists on the sheet
                 while (arg[1] <= range[1])
                 {
                     coords.col = arg[0];
@@ -368,6 +379,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
             }
             else
             {
+                // only increasing ranges supported
                 *code = BAD_SYNTAX;
                 return 0;
             }
@@ -377,11 +389,13 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
     }
 
     input--;
+    //ensure the end of the function was closed by a bracket otherwise BAD_SYNTAX
     if (*input == ')')
     {
         argEnd = input;
         arglen = argEnd - argStart;
 
+        // double check to ensure there were no unread args
         if (arglen >= 2)
         {
 
@@ -435,6 +449,7 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
         return 0;
     }
 
+    // divide py the number of oprands if average was the requested function
     if (strcmp(funcName, "AVERAGE") == 0)
     {
         int count = 1;
@@ -458,11 +473,21 @@ int tryParseArthimetic(struct Command *cmd, struct CommandInfo *cmdi, enum Code 
         free(range);
     }
 
+    // once no errors have been encountered, update the sheet
     placeNumber(sheet, cmd->coords, res);
     return 1;
 }
 
-int Range(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
+/**
+ * @brief Calculates the range of the given cells
+ * 
+ * @param cmd the command
+ * @param cmdi the command information
+ * @param code the code
+ * @param sheet the sheet to be updated
+ * @return int 1 if successful 0 otherwise
+ */
+int tryParseRange(struct Command *cmd, struct CommandInfo *cmdi, enum Code *code, struct Sheet *sheet)
 {
     double *rangearr;
     rangearr         = malloc(sizeof(double) * 100);
@@ -800,7 +825,7 @@ void parseCommand(struct Command *cmd, enum Code *code, struct Sheet *sheet)
                     return;
 
                 case 3:
-                    Range(cmd, &cmdi, code, sheet);
+                    tryParseRange(cmd, &cmdi, code, sheet);
                     break;
 
                 default:
